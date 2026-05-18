@@ -1,5 +1,5 @@
 # 🐱 pet-beamer — 节奏梳毛游戏
-**借鉴网站https://byeorisim.itch.io/brush-jjaemu制作梳毛部分，借鉴bits and bots制作节奏部分**
+**借鉴网站https://byeorisim.itch.io/brush-jjaemu 制作梳毛部分，借鉴bits and bots制作节奏部分**
 > 一款融合了 **节奏音游** 与 **虚拟宠物** 的网页小游戏。  
 > 用鼠标或键盘给猫咪梳毛，跟上节拍，赢取高分，解锁更多猫咪和歌曲！
 
