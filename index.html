@@ -1,0 +1,3384 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>刷猫小游戏 - Brush Jjaemu</title>
+
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐱</text></svg>" />
+
+<style>
+:root {
+  --ink: #261912;
+  --paper: rgba(255, 249, 239, 0.95);
+  --paper-strong: #fffaf2;
+  --sky: #a5e2f0;
+  --grass: #79bd75;
+  --gold: #ffd36b;
+  --mint: #9ce6b1;
+  --alarm: #e85a45;
+  --rose: #ffc2b7;
+  --shadow: rgba(38, 25, 18, 0.18);
+  --fur: color-mix(in srgb, #f4a460 70%, #fff 30%);
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; min-height: 100%; }
+
+body {
+  overflow: hidden;
+  color: var(--ink);
+  font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", ui-sans-serif, system-ui, sans-serif;
+  background:
+    radial-gradient(circle at 16% 15%, rgba(255, 243, 171, 0.85) 0 8%, transparent 9%),
+    radial-gradient(circle at 80% 10%, rgba(255, 255, 255, 0.68) 0 7%, transparent 8%),
+    linear-gradient(180deg, #8ed6e8 0 58%, #76bd72 58% 100%);
+}
+
+button, input { font: inherit; }
+button { cursor: pointer; }
+
+.game-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+}
+
+.stage {
+  position: relative;
+  width: min(100%, 1080px);
+  height: min(780px, calc(100vh - 36px));
+  min-height: 600px;
+  overflow: hidden;
+  border: 6px solid var(--ink);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 12% 18%, rgba(255, 255, 255, 0.8) 0 5%, transparent 5.5%),
+    radial-gradient(circle at 82% 16%, rgba(255, 255, 255, 0.64) 0 6%, transparent 6.5%),
+    linear-gradient(180deg, #9fe0ee 0 56%, #77be73 56% 100%);
+  box-shadow: 0 28px 0 rgba(38, 25, 18, 0.12), 0 16px 40px rgba(38, 25, 18, 0.18);
+  cursor: url("assets/comb.png") 406 210, auto;
+  touch-action: none;
+  user-select: none;
+}
+
+.top-panels {
+  position: absolute;
+  z-index: 16;
+  top: 18px;
+  left: 18px;
+  right: 18px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  pointer-events: none;
+}
+.top-panels > * { pointer-events: auto; }
+
+.left-stack, .right-stack { display: grid; gap: 12px; }
+.left-stack { width: clamp(290px, 36%, 380px); }
+.right-stack { width: min(100%, clamp(390px, 47%, 540px)); }
+
+.status-strip {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  align-items: start;
+  gap: 12px;
+}
+
+.hud { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+
+.hud > div, .selector, .care-panel, .mute-btn, .rhythm-panel {
+  border: 4px solid var(--ink);
+  border-radius: 16px;
+  box-shadow: 0 8px 0 var(--shadow);
+}
+
+.hud > div {
+  min-width: 0;
+  padding: 10px 12px;
+  background: rgba(255, 249, 239, 0.92);
+}
+
+.label {
+  display: block;
+  font-size: clamp(0.64rem, 2vw, 0.76rem);
+  font-weight: 900;
+  letter-spacing: 0.02em;
+}
+
+.hud strong {
+  display: block;
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: clamp(1.05rem, 5vw, 2rem);
+  line-height: 1;
+}
+
+.mute-btn {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  background: rgba(255, 249, 239, 0.95);
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.care-panel {
+  width: 100%;
+  min-width: 0;
+  padding: 10px;
+  background: rgba(255, 249, 239, 0.92);
+}
+
+.care-row {
+  display: grid;
+  grid-template-columns: 42px 1fr;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 7px;
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.care-meter {
+  height: 12px;
+  overflow: hidden;
+  border: 3px solid var(--ink);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.care-meter i {
+  display: block;
+  width: 0%;
+  height: 100%;
+  transition: width 100ms linear;
+}
+
+.comfort-meter i { background: #6dc778; }
+.alert-meter i { background: var(--alarm); }
+
+.care-panel strong {
+  display: block;
+  font-size: 0.92rem;
+}
+
+.care-panel strong.combo-hot {
+  color: var(--gold);
+  text-shadow: 0 0 8px rgba(255, 211, 107, 0.5);
+  transition: color 100ms, text-shadow 100ms;
+}
+
+.selector {
+  display: grid;
+  align-items: center;
+  gap: 6px;
+  padding: 8px;
+  background: rgba(255, 249, 239, 0.92);
+}
+.selector > div { min-width: 0; }
+
+.selector button, .upload-btn {
+  display: grid;
+  place-items: center;
+  min-width: 40px;
+  height: 40px;
+  border: 3px solid var(--ink);
+  border-radius: 12px;
+  color: var(--ink);
+  font-weight: 900;
+  line-height: 1;
+}
+
+.selector button, .rhythm-panel button, .form-actions button {
+  transition: transform 120ms ease, box-shadow 120ms ease, background 120ms ease;
+}
+
+.selector button:hover, .rhythm-panel button:hover, .form-actions button:hover, .mute-btn:hover {
+  transform: translateY(-1px);
+}
+
+.selector button:disabled, .rhythm-panel button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.cat-selector {
+  width: 100%;
+  grid-template-columns: 36px minmax(0, 1fr) 36px 34px 34px 34px;
+  gap: 4px;
+}
+
+.selector strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 1rem;
+  line-height: 1.1;
+}
+
+.selector small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.68rem;
+  font-weight: 800;
+  opacity: 0.78;
+}
+
+.add-btn, .upload-btn { background: linear-gradient(180deg, #fff0a8, #ffd86a); }
+.edit-btn { background: linear-gradient(180deg, #cceaff, #97d5ff); }
+.delete-btn { background: linear-gradient(180deg, #ffd8d1, #ffbaa9); }
+
+.upload-btn {
+  position: relative;
+  font-size: 0.9rem;
+}
+
+.upload-btn input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.rhythm-panel {
+  width: 100%;
+  min-width: 0;
+  padding: 10px;
+  background:
+    linear-gradient(180deg, rgba(255, 252, 246, 0.98), rgba(255, 243, 228, 0.92)),
+    radial-gradient(circle at top right, rgba(255, 211, 107, 0.3), transparent 55%);
+}
+
+.rhythm-topbar {
+  display: grid;
+  grid-template-columns: minmax(110px, auto) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.mode-btn {
+  min-height: 42px;
+  padding: 0 14px;
+  border: 3px solid var(--ink);
+  border-radius: 999px;
+  background: linear-gradient(180deg, #fff0b0, #ffc765);
+  font-weight: 950;
+}
+
+.stage.rhythm-mode .mode-btn { background: linear-gradient(180deg, #9fe0ee, #6ec6e0); }
+
+.song-headline {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.song-headline strong, .song-headline small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.song-headline strong { font-size: 1rem; }
+.song-headline small { font-size: 0.72rem; font-weight: 800; opacity: 0.76; }
+
+.rhythm-actions {
+  display: grid;
+  grid-template-columns: repeat(5, 38px);
+  gap: 6px;
+}
+
+.rhythm-panel button {
+  min-height: 38px;
+  border: 3px solid var(--ink);
+  border-radius: 12px;
+  color: var(--ink);
+  font-weight: 900;
+  background: var(--paper-strong);
+}
+
+.rhythm-card {
+  margin-top: 10px;
+  padding: 10px;
+  border: 3px solid rgba(38, 25, 18, 0.14);
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(255, 246, 233, 0.94)),
+    radial-gradient(circle at 12% 10%, rgba(159, 224, 238, 0.22), transparent 40%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+.beat-lane {
+  position: relative;
+  height: 80px;
+  overflow: hidden;
+  border: 3px solid var(--ink);
+  border-radius: 999px;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.9), rgba(245, 253, 255, 0.84)),
+    repeating-linear-gradient(90deg, transparent 0 11%, rgba(38, 25, 18, 0.05) 11% 11.8%, transparent 11.8% 24%);
+}
+
+.rhythm-preview { position: absolute; inset: 0; }
+
+.preview-note {
+  position: absolute;
+  top: 50%;
+  width: 30px;
+  height: 30px;
+  border: 3px solid var(--ink);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.4), 0 10px 18px rgba(38, 25, 18, 0.16);
+  will-change: left;
+}
+
+.preview-note::after {
+  content: attr(data-label);
+  position: absolute;
+  left: 50%;
+  top: calc(100% + 5px);
+  font-size: 0.64rem;
+  font-weight: 900;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  color: rgba(38, 25, 18, 0.74);
+}
+
+.preview-note.tap { background: #9fdff0; }
+.preview-note.accent { width: 36px; height: 36px; background: var(--gold); box-shadow: 0 0 0 4px rgba(255, 211, 107, 0.5), 0 0 18px rgba(255, 180, 30, 0.35), 0 10px 18px rgba(38, 25, 18, 0.16); }
+.preview-note.rest { background: #e7f4f8; opacity: 0.72; }
+.preview-note.peek { background: #ffca9f; }
+.preview-note.look { background: #ff9e8f; }
+
+.preview-note.count {
+  width: 32px; height: 32px; border-radius: 999px; background: #fff;
+}
+.preview-note.count::after { top: 50%; font-size: 0.8rem; color: var(--ink); transform: translate(-50%, -50%); }
+
+.preview-note.is-danger {
+  box-shadow: 0 0 0 4px rgba(232, 90, 69, 0.24), 0 12px 20px rgba(232, 90, 69, 0.18);
+}
+
+.preview-note.is-now {
+  scale: 1.3;
+  filter: brightness(1.2);
+  box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.7), 0 0 24px rgba(255, 211, 107, 0.6), 0 10px 18px rgba(38, 25, 18, 0.2);
+}
+
+.hit-line {
+  position: absolute;
+  top: 5px; bottom: 5px; left: 76%;
+  width: 5px; border-radius: 999px;
+  background: var(--ink);
+  box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.6), 0 0 16px rgba(157, 224, 240, 0.7), 0 0 40px rgba(157, 224, 240, 0.4);
+  animation: hit-line-pulse 800ms ease-in-out infinite alternate;
+}
+
+@keyframes hit-line-pulse {
+  from { box-shadow: 0 0 0 6px rgba(255,255,255,0.6), 0 0 16px rgba(157,224,240,0.7), 0 0 40px rgba(157,224,240,0.4); }
+  to   { box-shadow: 0 0 0 8px rgba(255,255,255,0.8), 0 0 22px rgba(157,224,240,0.85), 0 0 48px rgba(157,224,240,0.55); }
+}
+
+.rhythm-status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+#judgeText {
+  min-width: 88px;
+  padding: 4px 10px;
+  border: 3px solid var(--ink);
+  border-radius: 12px;
+  background: #fff;
+  text-align: center;
+  font-size: 0.82rem;
+  font-weight: 950;
+  transition: background 80ms ease, transform 80ms ease;
+}
+
+#judgeText.perfect { background: #b9ffb5; transform: scale(1.08); }
+#judgeText.good { background: #fff0a8; }
+#judgeText.miss { background: #ffb9ac; transform: scale(0.92); }
+
+.count-in-text {
+  min-height: 1.1rem;
+  font-size: 0.76rem;
+  font-weight: 900;
+  color: rgba(38, 25, 18, 0.74);
+}
+
+.beat-tip, .key-hint { display: block; margin-top: 6px; line-height: 1.35; }
+
+.beat-tip {
+  font-size: 0.72rem; font-weight: 900; color: rgba(38, 25, 18, 0.78);
+}
+
+.key-hint {
+  font-size: 0.82rem; font-weight: 900; color: rgba(38, 25, 18, 0.85);
+  padding: 8px 12px;
+  border: 2px solid rgba(38, 25, 18, 0.18);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.key-hint .keycap {
+  display: inline-block;
+  min-width: 26px;
+  padding: 2px 7px;
+  margin: 0 2px;
+  border: 2px solid var(--ink);
+  border-radius: 6px;
+  background: linear-gradient(180deg, #fff 0%, #e8e8e8 100%);
+  font-size: 0.78rem;
+  font-weight: 1000;
+  text-align: center;
+  box-shadow: 0 2px 0 rgba(38, 25, 18, 0.25);
+  color: var(--ink);
+}
+
+.key-hint .keycap.accent-key {
+  background: linear-gradient(180deg, #fff8d6, #ffd86a);
+  box-shadow: 0 2px 0 rgba(180, 130, 30, 0.4);
+}
+
+.death-title {
+  position: absolute;
+  z-index: 30;
+  top: 22%;
+  left: 50%;
+  color: #fff;
+  font-size: clamp(3.5rem, 15vw, 10rem);
+  font-weight: 1000;
+  line-height: 0.85;
+  opacity: 0;
+  pointer-events: none;
+  text-shadow: 0 6px 0 #000, 0 0 28px #d60000;
+  transform: translateX(-50%) scale(0.82);
+}
+
+.death-title.show {
+  opacity: 1;
+  transform: translateX(-50%) scale(1);
+  transition: opacity 80ms ease, transform 120ms ease;
+}
+
+.cat-zone {
+  position: absolute;
+  left: 50%;
+  bottom: 78px;
+  z-index: 17;
+  width: min(40vw, 292px);
+  aspect-ratio: 0.5 / 0.86;
+  overflow: hidden;
+  transform: translateX(-50%);
+}
+
+.cat-photo {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 16px 0 rgba(38, 25, 18, 0.16));
+  pointer-events: none;
+  will-change: transform, filter;
+}
+
+.stage.relaxed .cat-photo, .stage.watching .cat-photo { transform: translateX(0); }
+
+.stage.brushing .cat-zone { animation: groom-wiggle 160ms infinite alternate ease-in-out; }
+.stage.beat-pop .cat-zone { animation: beat-pop 160ms ease-out; }
+
+.thin-fur {
+  position: absolute;
+  left: 38%; top: 46%;
+  width: 22%; height: 16%;
+  border-radius: 55% 45% 60% 40%;
+  background: rgba(255, 255, 255, 0.42);
+  mix-blend-mode: screen;
+  opacity: 0;
+  will-change: opacity;
+}
+
+.tool-selector {
+  position: absolute;
+  left: 50%;
+  top: calc(100% - 82px + 12px);
+  width: min(64vw, 460px);
+  grid-template-columns: 52px minmax(160px, 1fr) 52px 52px 52px;
+  justify-content: center;
+  transform: translateX(-50%);
+  z-index: 14;
+}
+
+.tool-current {
+  display: grid;
+  grid-template-columns: 42px minmax(0, auto);
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 52px;
+  padding: 6px 12px;
+  border: 4px solid var(--alarm);
+  border-radius: 14px;
+  background: linear-gradient(180deg, #fff4bd, #ffe28d);
+  box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.62);
+}
+
+.tool-current img { width: 42px; height: 42px; object-fit: contain; pointer-events: none; }
+
+.tool-current strong {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.tool-selector button, .tool-selector .upload-btn { min-width: 52px; height: 52px; font-size: 1.3rem; }
+.tool-upload { font-size: 1.2rem; }
+
+.comb-ghost {
+  position: absolute;
+  z-index: 20;
+  width: min(170px, 26vw);
+  height: auto;
+  opacity: 0;
+  pointer-events: none;
+  /* translate(-50%,-50%) 使工具中心对齐指针，不再是左上角 */
+  transform: translate(-50%, -50%) rotate(-14deg);
+  filter: drop-shadow(0 8px 7px rgba(0, 0, 0, 0.26));
+  will-change: transform, opacity;
+}
+
+.comb-ghost.visible { opacity: 1; }
+
+.stage.brushing .comb-ghost { animation: comb-scrub 115ms infinite alternate ease-in-out; }
+
+.fx-layer {
+  position: absolute;
+  z-index: 19;
+  inset: 0;
+  pointer-events: none;
+}
+
+.plus-one, .hint-pop {
+  position: absolute;
+  translate: -50% -50%;
+  pointer-events: none;
+  text-shadow: 0 3px 0 var(--ink), 0 0 8px rgba(255, 255, 255, 0.8);
+  will-change: transform, opacity;
+}
+
+.plus-one {
+  color: #fff4bd;
+  font-size: 2rem;
+  font-weight: 1000;
+  animation: plus-float 500ms ease-out forwards;
+}
+
+.plus-one.perfect-pop {
+  font-size: 2.6rem;
+  color: #b8ffb1;
+  text-shadow: 0 3px 0 var(--ink), 0 0 16px rgba(184, 255, 177, 0.9), 0 0 32px rgba(184, 255, 177, 0.5);
+}
+
+.hint-pop {
+  font-size: 1.15rem;
+  font-weight: 1000;
+  animation: plus-float 700ms ease-out forwards;
+}
+
+.fur-hair {
+  position: absolute;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--fur);
+  box-shadow: 0 0 2px rgba(255, 255, 255, 0.72);
+  transform-origin: 50% 50%;
+  animation: hair-float 800ms ease-out forwards;
+  will-change: transform, opacity;
+}
+
+.fur-hair.curly { height: 3px; border-radius: 80% 30% 80% 30%; }
+
+.floor-fur {
+  position: absolute;
+  z-index: 3;
+  left: 0; right: 0;
+  bottom: 52px;
+  height: 86px;
+  pointer-events: none;
+}
+
+.fur-ball {
+  position: absolute;
+  bottom: 0;
+  width: 42px; height: 25px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 28% 36%, #fff 0 14%, transparent 15%),
+    radial-gradient(circle at 58% 50%, #ffd7a5 0 18%, transparent 19%),
+    radial-gradient(circle at 50% 50%, #f4a460 0 60%, transparent 61%);
+  opacity: 0.76;
+  filter: blur(0.4px);
+}
+
+.overlay, .modal {
+  position: absolute;
+  inset: 0;
+  display: none;
+  place-items: center;
+  padding: 22px;
+}
+
+.overlay { z-index: 40; background: rgba(38, 25, 18, 0.34); }
+.modal { z-index: 50; background: rgba(38, 25, 18, 0.48); }
+
+.overlay.show, .modal.show { display: grid; }
+
+.panel, .cat-form {
+  width: min(100%, 470px);
+  padding: 24px;
+  border: 6px solid var(--ink);
+  border-radius: 18px;
+  background: linear-gradient(180deg, #fffaf2, #fff1de);
+  box-shadow: 0 14px 0 rgba(38, 25, 18, 0.22);
+}
+
+.panel { text-align: center; }
+
+.panel h1 {
+  margin: 0 0 8px;
+  font-size: clamp(2.2rem, 9vw, 4.8rem);
+  line-height: 0.94;
+}
+
+.panel p { margin: 0 auto 18px; max-width: 25rem; font-weight: 760; line-height: 1.45; }
+
+.stats-block {
+  display: none;
+  margin: 12px auto 18px;
+  max-width: 26rem;
+  text-align: center;
+}
+
+.stats-block.show { display: block; }
+
+.stats-grade {
+  font-size: 4rem;
+  font-weight: 1000;
+  line-height: 1;
+  color: var(--gold);
+  text-shadow: 0 4px 0 rgba(38, 25, 18, 0.3);
+}
+
+.stats-grade.grade-ss { color: #ffd700; text-shadow: 0 4px 0 rgba(180,130,0,0.4), 0 0 24px rgba(255,215,0,0.5); }
+.stats-grade.grade-s  { color: #ffd700; }
+.stats-grade.grade-a  { color: #b8ffb1; }
+.stats-grade.grade-b  { color: #9fdff0; }
+.stats-grade.grade-c  { color: #ffca9f; }
+.stats-grade.grade-d  { color: #ff9b8a; }
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.stats-grid .stat-item {
+  padding: 8px;
+  border: 2px solid rgba(38, 25, 18, 0.15);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.stats-grid .stat-label { display: block; font-size: 0.68rem; font-weight: 800; color: rgba(38, 25, 18, 0.6); }
+.stats-grid .stat-value { display: block; font-size: 1.2rem; font-weight: 1000; line-height: 1.2; }
+
+.panel button, .form-actions button {
+  min-height: 52px;
+  border: 4px solid var(--ink);
+  border-radius: 14px;
+  color: var(--ink);
+  font-weight: 950;
+}
+
+.panel button {
+  min-width: 150px;
+  background: linear-gradient(180deg, #9fe0ee, #72cbdf);
+  font-size: 1.2rem;
+}
+
+.cat-form h2 { margin: 0; font-size: 1.9rem; line-height: 1; }
+
+.modal-hint { margin: 10px 0 0; color: rgba(38, 25, 18, 0.7); font-size: 0.76rem; font-weight: 780; line-height: 1.35; }
+
+.cat-form label {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+  font-size: 0.8rem;
+  font-weight: 950;
+}
+
+.cat-form input {
+  width: 100%;
+  min-height: 42px;
+  border: 3px solid var(--ink);
+  border-radius: 12px;
+  padding: 8px 10px;
+  color: var(--ink);
+  background: white;
+  font-weight: 760;
+}
+
+.field-tip { color: rgba(38, 25, 18, 0.72); font-size: 0.68rem; line-height: 1.35; }
+
+.form-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.form-actions button { background: linear-gradient(180deg, #9fe0ee, #72cbdf); }
+.form-actions .secondary-btn { background: linear-gradient(180deg, #fff3b8, #ffdb84); }
+
+.source-toggle {
+  display: grid;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 2px solid rgba(38, 25, 18, 0.15);
+  border-radius: 10px;
+  background: white;
+}
+
+.toggle-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  font-weight: 760;
+  cursor: pointer;
+}
+
+.file-warning {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 9999;
+  padding: 12px 18px;
+  background: #fff3cd;
+  border-bottom: 3px solid #ffc107;
+  color: #664d03;
+  font-size: 0.85rem;
+  font-weight: 800;
+  text-align: center;
+  line-height: 1.4;
+}
+
+.next-key-indicator {
+  position: absolute;
+  z-index: 18;
+  pointer-events: none;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 18px;
+  border: 4px solid var(--ink);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.9);
+  font-weight: 1000;
+  font-size: 1.2rem;
+  box-shadow: 0 8px 0 rgba(38, 25, 18, 0.2);
+  animation: next-key-bob 500ms ease-in-out infinite alternate;
+  left: 50%;
+  bottom: 42%;
+  transform: translateX(-50%);
+  will-change: transform;
+}
+
+.next-key-indicator.show { display: flex; }
+
+.next-key-indicator.tap-indicator { background: linear-gradient(180deg, #c8f0f8, #9fdff0); border-color: #6eb8c8; }
+.next-key-indicator.accent-indicator { background: linear-gradient(180deg, #fff0b0, #ffd86a); border-color: #d4a030; font-size: 1.35rem; }
+.next-key-indicator.watch-indicator { background: linear-gradient(180deg, #ffc2b7, #ff9e8f); border-color: #d46050; animation: next-key-urgent 250ms ease-in-out infinite alternate; }
+
+.next-key-indicator .indicator-key {
+  display: inline-block;
+  min-width: 32px;
+  padding: 4px 10px;
+  border: 2px solid rgba(38, 25, 18, 0.5);
+  border-radius: 8px;
+  background: #fff;
+  font-size: 1rem;
+  text-align: center;
+}
+
+.combo-milestone {
+  position: absolute;
+  z-index: 28;
+  left: 50%;
+  top: 40%;
+  transform: translate(-50%, -50%);
+  font-size: 2.4rem;
+  font-weight: 1000;
+  color: #fff4bd;
+  text-shadow: 0 4px 0 var(--ink), 0 0 18px rgba(255, 211, 107, 0.8);
+  pointer-events: none;
+  will-change: transform, opacity;
+  animation: combo-burst 1.2s ease-out forwards;
+}
+
+@keyframes next-key-bob {
+  from { transform: translate(-50%, -4px); }
+  to   { transform: translate(-50%, 4px); }
+}
+
+@keyframes next-key-urgent {
+  from { transform: translate(-50%, -2px) scale(1); }
+  to   { transform: translate(-50%, 2px) scale(1.06); }
+}
+
+.stage.screen-shake { animation: screen-shake 180ms ease-out; }
+
+@keyframes screen-shake {
+  0%  { transform: translateX(0); }
+  15% { transform: translateX(-6px) rotate(-1deg); }
+  30% { transform: translateX(5px) rotate(0.8deg); }
+  45% { transform: translateX(-4px); }
+  60% { transform: translateX(3px); }
+  75% { transform: translateX(-2px); }
+  90% { transform: translateX(1px); }
+  100% { transform: translateX(0); }
+}
+
+.cat-hit-flash { animation: cat-hit-flash 200ms ease-out; }
+.cat-hit-flash.perfect-flash { animation: cat-perfect-flash 250ms ease-out; }
+.cat-hit-flash.miss-flash { animation: cat-miss-flash 250ms ease-out; }
+
+@keyframes cat-hit-flash {
+  0%  { filter: brightness(1.5) drop-shadow(0 0 20px rgba(255,255,255,0.8)); }
+  100% { filter: brightness(1) drop-shadow(0 16px 0 rgba(38, 25, 18, 0.16)); }
+}
+
+@keyframes cat-perfect-flash {
+  0%  { filter: brightness(1.8) drop-shadow(0 0 32px rgba(184, 255, 177, 0.9)); transform: scale(1.04); }
+  100% { filter: brightness(1) drop-shadow(0 16px 0 rgba(38, 25, 18, 0.16)); transform: scale(1); }
+}
+
+@keyframes cat-miss-flash {
+  0%  { filter: brightness(0.7) saturate(0.5) drop-shadow(0 0 20px rgba(255, 0, 0, 0.5)); transform: translateX(-3px); }
+  20% { transform: translateX(3px); }
+  40% { transform: translateX(-2px); }
+  60% { transform: translateX(2px); }
+  100% { filter: brightness(1) saturate(1) drop-shadow(0 16px 0 rgba(38, 25, 18, 0.16)); transform: translateX(0); }
+}
+
+@keyframes combo-burst {
+  0%   { opacity: 1; transform: translate(-50%, -50%) scale(0.5); }
+  30%  { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+  100% { opacity: 0; transform: translate(-50%, -70%) scale(1); }
+}
+
+.stage.jumpscare::after {
+  content: "";
+  position: absolute;
+  z-index: 29;
+  inset: 0;
+  background: rgba(232, 90, 69, 0.78);
+  pointer-events: none;
+  animation: red-flash 900ms steps(4, end) forwards;
+}
+
+@keyframes groom-wiggle { from { transform: translateX(-2px) rotate(-0.6deg); } to { transform: translateX(2px) rotate(0.6deg); } }
+@keyframes comb-scrub { from { transform: translateX(-6px) rotate(-4deg); } to { transform: translateX(8px) rotate(5deg); } }
+
+@keyframes beat-pop {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05) rotate(-1.5deg); }
+  100% { transform: scale(1); }
+}
+
+@keyframes plus-float {
+  to { opacity: 0; transform: translateY(-44px) scale(1.25); }
+}
+
+@keyframes hair-float {
+  0% { opacity: 1; transform: translate(0, 0) rotate(0deg); }
+  40% { opacity: 0.95; transform: translate(0, var(--drift-y)) rotate(24deg); }
+  100% { opacity: 0; transform: translate(var(--drift-x), calc(var(--drift-y) - 14px)) rotate(92deg); }
+}
+
+@keyframes red-flash {
+  0%, 24%, 50%, 74% { opacity: 0.92; }
+  25%, 49%, 75%, 100% { opacity: 0; }
+}
+
+@media (max-width: 960px) {
+  .top-panels { display: grid; grid-template-columns: minmax(0, 1fr); }
+  .left-stack, .right-stack { width: auto; }
+  .rhythm-topbar { grid-template-columns: minmax(110px, auto) minmax(0, 1fr); }
+  .rhythm-actions { grid-column: 1 / -1; justify-content: end; }
+  .cat-zone { width: min(34vw, 250px); }
+}
+
+@media (max-width: 700px) {
+  .top-panels { top: 14px; left: 14px; right: 14px; gap: 10px; }
+  .status-strip { grid-template-columns: 48px minmax(0, 1fr); gap: 10px; }
+  .mute-btn { width: 48px; height: 48px; }
+  .cat-selector { grid-template-columns: 34px minmax(0, 1fr) 34px 32px 32px 32px; }
+  .selector button, .upload-btn { min-width: 36px; height: 36px; }
+  .rhythm-topbar { grid-template-columns: 1fr; gap: 8px; }
+  .rhythm-actions { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .cat-zone { width: min(32vw, 220px); bottom: 88px; }
+}
+
+@media (max-width: 560px) {
+  .game-shell { padding: 0; }
+  .stage { width: 100vw; height: 100vh; min-height: 520px; border: 0; border-radius: 0; }
+  .top-panels { top: 10px; left: 10px; right: 10px; gap: 8px; }
+  .left-stack, .right-stack { gap: 8px; }
+  .hud { gap: 6px; }
+  .hud > div, .selector, .care-panel, .mute-btn, .rhythm-panel { border-width: 3px; box-shadow: 0 6px 0 var(--shadow); }
+  .hud > div { padding: 8px 7px; }
+  .status-strip { grid-template-columns: 46px minmax(0, 1fr); gap: 8px; }
+  .mute-btn { width: 46px; height: 46px; font-size: 1.2rem; }
+  .rhythm-panel { padding: 8px; }
+  .rhythm-actions { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .rhythm-panel button { min-height: 34px; border-width: 2px; font-size: 0.78rem; }
+  .rhythm-card { padding: 8px; }
+  .beat-lane { height: 56px; }
+  .hit-line { left: 74%; }
+  .preview-note::after { font-size: 0.52rem; }
+  .care-panel { padding: 7px; }
+  .care-row { grid-template-columns: 34px 1fr; gap: 5px; margin-bottom: 5px; font-size: 0.68rem; }
+  .care-panel strong { font-size: 0.76rem; }
+  .selector { gap: 4px; padding: 5px; }
+  .cat-selector { grid-template-columns: 30px minmax(0, 1fr) 30px 28px 28px 28px; }
+  .selector button, .upload-btn { min-width: 30px; height: 30px; border-width: 2px; }
+  .selector strong { font-size: 0.86rem; }
+  .selector small { font-size: 0.6rem; }
+  .cat-zone { width: min(46vw, 190px); bottom: 88px; }
+  .tool-selector { width: min(92vw, 390px); grid-template-columns: 46px minmax(98px, 1fr) 46px 46px 46px; top: calc(100% - 90px + 12px); gap: 5px; padding: 5px; }
+  .tool-selector button, .tool-selector .upload-btn { min-width: 46px; height: 46px; }
+  .tool-current { min-height: 46px; border-width: 3px; }
+  .tool-current img { width: 34px; height: 34px; }
+  .tool-current strong { max-width: 120px; font-size: 0.86rem; }
+  .panel, .cat-form { padding: 18px; border-width: 5px; border-radius: 16px; }
+  .cat-form h2 { font-size: 1.55rem; }
+  .form-actions { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<main class="game-shell" aria-label="刷猫反应小游戏">
+  <section class="stage relaxed" id="stage">
+    <div class="top-panels">
+      <div class="left-stack">
+        <div class="hud" aria-live="polite">
+          <div><span class="label">分数</span><strong id="score">0</strong></div>
+          <div><span class="label">最佳</span><strong id="best">0</strong></div>
+          <div><span class="label">状态</span><strong id="mood">放松</strong></div>
+        </div>
+        <div class="selector cat-selector" aria-label="选择猫咪">
+          <button id="prevCatBtn" type="button" aria-label="上一只猫">◀</button>
+          <div>
+            <span class="label">猫咪</span>
+            <strong id="catName">加载中</strong>
+            <small id="catPersonality">正在整理猫咪资料</small>
+          </div>
+          <button id="nextCatBtn" type="button" aria-label="下一只猫">▶</button>
+          <button id="editCatBtn" class="edit-btn" type="button" aria-label="编辑当前猫咪">✎</button>
+          <button id="addCatBtn" class="add-btn" type="button" aria-label="添加猫咪">＋</button>
+          <button id="deleteCatBtn" class="delete-btn" type="button" aria-label="删除当前猫咪">×</button>
+        </div>
+      </div>
+      <div class="right-stack">
+        <div class="status-strip">
+          <button id="muteBtn" class="mute-btn" type="button" aria-label="静音切换">🔈</button>
+          <div class="care-panel" aria-live="polite">
+            <div class="care-row"><span>舒服</span><div class="care-meter comfort-meter"><i id="comfortFill"></i></div></div>
+            <div class="care-row"><span>警惕</span><div class="care-meter alert-meter"><i id="alertFill"></i></div></div>
+            <strong id="comboText">连击 x0</strong>
+          </div>
+        </div>
+        <div class="rhythm-panel" aria-label="模式与节奏设置">
+          <div class="rhythm-topbar">
+            <button id="modeBtn" class="mode-btn" type="button">自由模式</button>
+            <div class="song-headline" aria-live="polite">
+              <span class="label">当前谱面</span>
+              <strong id="songName">呼噜练习曲</strong>
+              <small id="songBpm">84 BPM</small>
+            </div>
+            <div class="rhythm-actions">
+              <button id="prevSongBtn" type="button" aria-label="上一首">◀</button>
+              <button id="nextSongBtn" type="button" aria-label="下一首">▶</button>
+              <button id="editSongBtn" class="edit-btn" type="button" aria-label="编辑当前歌曲">✎</button>
+              <button id="importSongBtn" class="add-btn" type="button" aria-label="添加歌曲">＋</button>
+              <button id="deleteSongBtn" class="delete-btn" type="button" aria-label="删除当前歌曲">×</button>
+            </div>
+          </div>
+          <div class="rhythm-card">
+            <div class="beat-lane" id="beatLane" aria-hidden="true">
+              <div id="rhythmPreview" class="rhythm-preview"></div>
+              <i class="hit-line"></i>
+            </div>
+            <div class="rhythm-status-row">
+              <b id="judgeText">准备</b>
+              <span id="countInText" class="count-in-text"></span>
+            </div>
+            <small id="keyHint" class="key-hint">自由模式主要用鼠标或触摸梳毛</small>
+            <small id="beatTip" class="beat-tip">普通模式下，小猫会随机回头</small>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="death-title" id="deathTitle">被发现了</div>
+    <div class="next-key-indicator" id="nextKeyIndicator">
+      <span class="indicator-key">J/F</span><span>梳毛</span>
+    </div>
+    <div class="fx-layer" id="fxLayer" aria-hidden="true"></div>
+    <div class="cat-zone" id="catZone">
+      <img id="catStateImg" class="cat-photo" src="assets/阳光小橘0.png" alt="猫咪" draggable="false" />
+      <div class="thin-fur" id="thinFur"></div>
+    </div>
+    <div class="selector tool-selector" aria-label="选择工具">
+      <button id="prevToolBtn" type="button" aria-label="上一个工具">◀</button>
+      <div class="tool-current" aria-live="polite">
+        <img id="toolIcon" src="assets/comb.png" alt="" draggable="false" />
+        <strong id="toolName">梳子</strong>
+      </div>
+      <button id="nextToolBtn" type="button" aria-label="下一个工具">▶</button>
+      <label class="upload-btn tool-upload" aria-label="上传工具">＋<input id="toolUpload" type="file" accept="image/*" /></label>
+      <button id="deleteToolBtn" class="delete-btn" type="button" aria-label="删除当前工具">×</button>
+    </div>
+    <img id="combGhost" class="comb-ghost" src="assets/comb.png" alt="" draggable="false" aria-hidden="true" />
+    <div class="floor-fur" id="floorFur" aria-hidden="true"></div>
+    <div class="overlay show" id="overlay">
+      <div class="panel">
+        <h1>Brush Jjaemu</h1>
+        <p id="message">慢慢梳会更舒服，太快会让猫紧张。它回头时立刻停手。</p>
+        <div class="stats-block" id="statsBlock">
+          <div class="stats-grade" id="statsGrade">S</div>
+          <div class="stats-grid">
+            <div class="stat-item"><span class="stat-label">最大连击</span><span class="stat-value" id="statsMaxCombo">0</span></div>
+            <div class="stat-item"><span class="stat-label">准确率</span><span class="stat-value" id="statsAccuracy">--</span></div>
+            <div class="stat-item"><span class="stat-label">判定</span><span class="stat-value" id="statsJudges">0/0/0</span></div>
+          </div>
+        </div>
+        <button id="startBtn" type="button">开始</button>
+      </div>
+    </div>
+    <div class="modal" id="catModal" aria-hidden="true">
+      <form class="cat-form" id="catForm">
+        <h2 id="catModalTitle">添加猫咪</h2>
+        <p id="catModalHint" class="modal-hint">0 图是平静状态，1 图是警惕状态。</p>
+        <label>名字<input id="newCatName" type="text" required maxlength="24" placeholder="糯米" /></label>
+        <label>介绍<input id="newCatPersonality" type="text" required maxlength="80" placeholder="看起来懒洋洋，其实会突然盯人。" /></label>
+        <label>平静状态图<input id="newCatRelax" type="file" accept="image/*" /><small class="field-tip">新增时必选；编辑时留空会保留当前图片。</small></label>
+        <label>警惕状态图<input id="newCatAngry" type="file" accept="image/*" /><small class="field-tip">新增时必选；编辑时留空会保留当前图片。</small></label>
+        <div class="form-actions">
+          <button id="cancelCatBtn" type="button">取消</button>
+          <button id="restoreCatBtn" class="secondary-btn" type="button" hidden>恢复默认</button>
+          <button id="saveCatBtn" type="submit">保存</button>
+        </div>
+      </form>
+    </div>
+    <div class="modal" id="songModal" aria-hidden="true">
+      <form class="cat-form" id="songForm">
+        <h2 id="songModalTitle">添加歌曲</h2>
+        <p id="songModalHint" class="modal-hint">支持继续使用 1 / 2 / 0 / S / L 的旧节拍格式。</p>
+        <label>曲名<input id="newSongName" type="text" required maxlength="24" placeholder="我的节拍" /></label>
+        <label>BPM<input id="newSongBpm" type="number" required min="40" max="220" value="100" /></label>
+        <label>节拍序列<input id="newSongPattern" type="text" required placeholder="1,0,2,S,1,0,L,0" /><small class="field-tip">1=普通拍，2=重拍，0=空拍，S=偷看，L=回头。</small></label>
+        <label>音频文件<input id="newSongAudio" type="file" accept="audio/*" /><small class="field-tip">编辑时留空会保留当前音频；音频会一起保存到本地。</small></label>
+        <label>节拍来源</label>
+        <div class="source-toggle" id="beatSourceToggle">
+          <label class="toggle-option"><input type="radio" name="beatSource" value="auto" /> 自动识别（分析音频 BPM）</label>
+          <label class="toggle-option"><input type="radio" name="beatSource" value="manual" checked /> 自定义节拍（使用上面的序列）</label>
+        </div>
+        <div class="form-actions">
+          <button id="cancelSongBtn" type="button">取消</button>
+          <button id="restoreSongBtn" class="secondary-btn" type="button" hidden>恢复默认</button>
+          <button id="saveSongBtn" type="submit">保存</button>
+        </div>
+      </form>
+    </div>
+  </section>
+</main>
+
+<script type="module">
+  /* web-audio-beat-detector: esm.sh 自动打包依赖，无需 import-map。
+     失败时 __beatDetectorGuess 设为 null，游戏仍可正常工作（使用手动节拍）。 */
+  (async function initBeatDetector() {
+    try {
+      var mod = await import("https://esm.sh/web-audio-beat-detector@8.2.36");
+      window.__beatDetectorGuess = mod.guess;
+      console.log("beat-detector 已就绪 (esm.sh)");
+    } catch (e) {
+      if (location.protocol === "file:") {
+        console.warn("file:// 协议下 CDN 模块加载受限。请使用 Live Server 打开以启用自动节拍识别。");
+      }
+      console.warn("Beat detector CDN 加载失败，自动识别不可用。将使用手动 BPM/节拍。", e.message);
+      window.__beatDetectorGuess = null;
+    }
+  })();
+</script>
+<script>
+/* =====================================================================
+   Brush Jjaemu — 精准节拍调度器重构版
+   基于 AudioContext.currentTime 的前瞻性调度器 (Look-ahead Scheduler)
+   ===================================================================== */
+
+/* ---------- DOM refs ---------- */
+const stage = document.querySelector("#stage");
+const nextKeyIndicator = document.querySelector("#nextKeyIndicator");
+const statsBlock = document.querySelector("#statsBlock");
+const statsGrade = document.querySelector("#statsGrade");
+const statsMaxCombo = document.querySelector("#statsMaxCombo");
+const statsAccuracy = document.querySelector("#statsAccuracy");
+const statsJudges = document.querySelector("#statsJudges");
+const catStateImg = document.querySelector("#catStateImg");
+const catZone = document.querySelector("#catZone");
+const combGhost = document.querySelector("#combGhost");
+const overlay = document.querySelector("#overlay");
+const startBtn = document.querySelector("#startBtn");
+const muteBtn = document.querySelector("#muteBtn");
+const scoreEl = document.querySelector("#score");
+const bestEl = document.querySelector("#best");
+const moodEl = document.querySelector("#mood");
+const messageEl = document.querySelector("#message");
+const comfortFill = document.querySelector("#comfortFill");
+const alertFill = document.querySelector("#alertFill");
+const comboText = document.querySelector("#comboText");
+const modeBtn = document.querySelector("#modeBtn");
+const prevSongBtn = document.querySelector("#prevSongBtn");
+const nextSongBtn = document.querySelector("#nextSongBtn");
+const editSongBtn = document.querySelector("#editSongBtn");
+const importSongBtn = document.querySelector("#importSongBtn");
+const deleteSongBtn = document.querySelector("#deleteSongBtn");
+const songNameEl = document.querySelector("#songName");
+const songBpmEl = document.querySelector("#songBpm");
+const judgeText = document.querySelector("#judgeText");
+const keyHint = document.querySelector("#keyHint");
+const beatTip = document.querySelector("#beatTip");
+const countInText = document.querySelector("#countInText");
+const rhythmPreview = document.querySelector("#rhythmPreview");
+const fxLayer = document.querySelector("#fxLayer");
+const deathTitle = document.querySelector("#deathTitle");
+const floorFur = document.querySelector("#floorFur");
+const thinFur = document.querySelector("#thinFur");
+const catNameEl = document.querySelector("#catName");
+const catPersonalityEl = document.querySelector("#catPersonality");
+const toolNameEl = document.querySelector("#toolName");
+const toolIcon = document.querySelector("#toolIcon");
+const prevCatBtn = document.querySelector("#prevCatBtn");
+const nextCatBtn = document.querySelector("#nextCatBtn");
+const editCatBtn = document.querySelector("#editCatBtn");
+const addCatBtn = document.querySelector("#addCatBtn");
+const deleteCatBtn = document.querySelector("#deleteCatBtn");
+const catModal = document.querySelector("#catModal");
+const catForm = document.querySelector("#catForm");
+const catModalTitle = document.querySelector("#catModalTitle");
+const catModalHint = document.querySelector("#catModalHint");
+const saveCatBtn = document.querySelector("#saveCatBtn");
+const restoreCatBtn = document.querySelector("#restoreCatBtn");
+const cancelCatBtn = document.querySelector("#cancelCatBtn");
+const newCatName = document.querySelector("#newCatName");
+const newCatPersonality = document.querySelector("#newCatPersonality");
+const newCatRelax = document.querySelector("#newCatRelax");
+const newCatAngry = document.querySelector("#newCatAngry");
+const songModal = document.querySelector("#songModal");
+const songForm = document.querySelector("#songForm");
+const songModalTitle = document.querySelector("#songModalTitle");
+const songModalHint = document.querySelector("#songModalHint");
+const saveSongBtn = document.querySelector("#saveSongBtn");
+const restoreSongBtn = document.querySelector("#restoreSongBtn");
+const cancelSongBtn = document.querySelector("#cancelSongBtn");
+const newSongName = document.querySelector("#newSongName");
+const newSongBpm = document.querySelector("#newSongBpm");
+const newSongPattern = document.querySelector("#newSongPattern");
+const newSongAudio = document.querySelector("#newSongAudio");
+const prevToolBtn = document.querySelector("#prevToolBtn");
+const nextToolBtn = document.querySelector("#nextToolBtn");
+const deleteToolBtn = document.querySelector("#deleteToolBtn");
+const toolUpload = document.querySelector("#toolUpload");
+
+/* ---------- Constants ---------- */
+const BASE_DIFFICULTY = {
+  minRelaxedTime: 2.0, maxRelaxedTime: 4.5,
+  minWarningTime: 0.3, maxWarningTime: 0.6,
+  speedThreshold: 40, reactionTime: 0.45,
+  alertGain: 1, alertDecay: 0.7,
+};
+
+const BEST_STORAGE_KEY = "brush-photo-cat-best";
+const LEGACY_CUSTOM_CATS_STORAGE_KEY = "brush-photo-cat-custom-cats";
+const LEGACY_CUSTOM_SONGS_STORAGE_KEY = "brush-photo-cat-custom-songs";
+const DB_NAME = "brush-photo-cat-db";
+const DB_VERSION = 1;
+const DB_CAT_STORE = "cats";
+const DB_SONG_STORE = "songs";
+const DB_META_STORE = "meta";
+const META_MIGRATED_KEY = "legacy-migrated";
+
+const FALLBACK_BPM = 82;
+
+const BUILTIN_CAT_SPECS = (function buildCatSpecs() {
+  const enc = function(p) { try { return encodeURI(p); } catch(e) { return p; } };
+  return [
+    { id: "sunny-orange", label: "阳光小橘", relaxImg: enc("assets/阳光小橘0.png"), angryImg: enc("assets/阳光小橘1.png"), difficulty: {} },
+    { id: "inky-boss", label: "煤老板", relaxImg: enc("assets/煤老板0.png"), angryImg: enc("assets/煤老板1.png"), difficulty: { minRelaxedTime: 1.7, maxRelaxedTime: 3.8, minWarningTime: 0.35, maxWarningTime: 0.76, speedThreshold: 47 } },
+    { id: "wild-calico", label: "流浪三花", relaxImg: enc("assets/流浪三花0.png"), angryImg: enc("assets/流浪三花1.png"), difficulty: { minRelaxedTime: 2.35, maxRelaxedTime: 4.9, minWarningTime: 0.25, maxWarningTime: 0.56, speedThreshold: 36 } },
+    { id: "moka", label: "摩卡", relaxImg: enc("assets/摩卡0.png"), angryImg: enc("assets/摩卡1.png"), difficulty: { minRelaxedTime: 2.15, maxRelaxedTime: 4.6, minWarningTime: 0.3, maxWarningTime: 0.64, speedThreshold: 42 } },
+    { id: "xiaomi", label: "小咪", relaxImg: enc("assets/小咪0.png"), angryImg: enc("assets/小咪1.png"), difficulty: { minRelaxedTime: 2.0, maxRelaxedTime: 4.1, minWarningTime: 0.3, maxWarningTime: 0.6, speedThreshold: 39 } },
+    { id: "scruffy-dog", label: "潦草小狗", relaxImg: enc("assets/潦草小狗0.png"), angryImg: enc("assets/潦草小狗1.png"), difficulty: { minRelaxedTime: 2.25, maxRelaxedTime: 4.85, minWarningTime: 0.3, maxWarningTime: 0.66, speedThreshold: 41 } },
+    { id: "black-cat", label: "黑猫", relaxImg: enc("assets/黑猫0.png"), angryImg: enc("assets/黑猫1.png"), difficulty: { minRelaxedTime: 1.8, maxRelaxedTime: 3.7, minWarningTime: 0.34, maxWarningTime: 0.74, speedThreshold: 48 } },
+    { id: "messy-tabby", label: "通天岩狸花猫", relaxImg: enc("assets/通天岩狸花猫0.png"), angryImg: enc("assets/通天岩狸花猫1.png"), difficulty: { minRelaxedTime: 1.95, maxRelaxedTime: 4.0, minWarningTime: 0.28, maxWarningTime: 0.58, speedThreshold: 38 } },
+    { id: "night-heron", label: "夜鹭", relaxImg: enc("assets/夜鹭0.png"), angryImg: enc("assets/夜鹭1.png"), difficulty: { minRelaxedTime: 1.65, maxRelaxedTime: 3.45, minWarningTime: 0.4, maxWarningTime: 0.78, speedThreshold: 50 } },
+    { id: "goofy-cat", label: "丑猫", relaxImg: enc("assets/丑猫0.png"), angryImg: enc("assets/丑猫1.png"), difficulty: { minRelaxedTime: 2.2, maxRelaxedTime: 4.6, minWarningTime: 0.28, maxWarningTime: 0.58, speedThreshold: 37 } },
+  ];
+})();
+
+const RANDOM_CAT_NAMES = ["糯米团","小班长","糊糊","奶油警官","绒绒站长","脆脆","阿福","团子舰长","白袜","小宇宙","焦糖","碎银"];
+const RANDOM_CAT_INTROS = [
+  "看着懒洋洋，实际上一直在观察你有没有偷懒。",
+  "喜欢别人轻轻梳，但一旦手重就会立刻回头。",
+  "会在快睡着和突然警觉之间无缝切换。",
+  "最擅长用无辜脸骗你继续服务。",
+  "舒服的时候会眯眼，不舒服的时候会盯到你心虚。",
+  "表面乖巧，内心其实是节奏判官。",
+  "只要你稳一点，它就愿意再给你几拍机会。",
+  "回头速度像查岗，但被梳顺了又会偷偷满意。",
+];
+
+const BUILTIN_SONG_DEFS = [
+  { id: "purr-practice", name: "呼噜练习曲", bpm: 84, pattern: ["2","0","1","S","1","1","0","L"] },
+  { id: "tail-swing", name: "猫尾摇摆", bpm: 104, pattern: ["2","1","0","S","1","0","2","L"] },
+  { id: "midnight-fur", name: "午夜炸毛", bpm: 128, pattern: ["1","0","2","1","S","0","1","L","2","0","S","1"] },
+];
+
+const RHYTHM_EVENT_DEFS = {
+  tap:    { key:"tap", label:"普通拍", judgeable:true,  previewLabel:"拍", scoreBonus:0, comfortBonus:0, alertEase:4, keybind:"J / F", tip:"顺着节拍梳，保持均匀手感。" },
+  accent: { key:"accent", label:"重拍",  judgeable:true,  previewLabel:"重", scoreBonus:1, comfortBonus:2, alertEase:6, keybind:"K / D", tip:"重拍到了，这一下更赚分。" },
+  rest:   { key:"rest", label:"空拍",   judgeable:false, previewLabel:"空", keybind:"-", tip:"空拍收一下手，别乱刷。" },
+  look:   { key:"look", label:"回头",   judgeable:false, previewLabel:"看", watch:true, watchReward:2, graceBeats:0.85, watchBeats:1.15, keybind:"松开", tip:"回头拍到了，马上停手。" },
+  peek:   { key:"peek", label:"偷看",   judgeable:false, previewLabel:"瞄", watch:true, watchReward:1, graceBeats:0.52, watchBeats:0.8,  keybind:"松开", tip:"偷看会很短，轻轻收手。" },
+};
+
+const RHYTHM_KEY_BINDINGS = { KeyJ:"tap", KeyF:"tap", KeyK:"accent", KeyD:"accent" };
+
+const RHYTHM_PATTERN_ALIAS = {
+  0:"rest", 1:"tap", 2:"accent", "-":"rest", R:"rest", REST:"rest",
+  TAP:"tap", T:"tap", A:"accent", ACCENT:"accent",
+  L:"look", LOOK:"look", X:"look", "!":"look",
+  S:"peek", P:"peek", PEEK:"peek",
+};
+
+const cats = [];
+const songs = [];
+
+const tools = [
+  { name:"梳子", img:"assets/comb.png", cursorHotspot:"406 210" },
+  { name:"锄头", img:"assets/hoe.png", cursorHotspot:"347 290" },
+  { name:"掏耳勺", img:"assets/earpick.png", cursorHotspot:"406 286" },
+];
+
+/* ---------- Look-ahead Scheduler ---------- */
+class LookAheadScheduler {
+  constructor(audioCtx) {
+    this.audio = audioCtx;
+    this.events = [];
+    this.timer = null;
+    this.lookAhead = 0.10;
+    this.running = false;
+  }
+
+  addEvent(time, callback) {
+    const evt = { time, callback };
+    let lo = 0, hi = this.events.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >>> 1;
+      if (this.events[mid].time <= time) lo = mid + 1;
+      else hi = mid;
+    }
+    this.events.splice(lo, 0, evt);
+  }
+
+  clear() {
+    this.events.length = 0;
+  }
+
+  start() {
+    if (this.running) return;
+    this.running = true;
+    this._tick();
+  }
+
+  stop() {
+    this.running = false;
+    clearTimeout(this.timer);
+    this.timer = null;
+    this.clear();
+  }
+
+  _tick() {
+    if (!this.running) return;
+    const now = this.audio ? this.audio.currentTime : performance.now() / 1000;
+    const horizon = now + this.lookAhead;
+
+    while (this.events.length > 0 && this.events[0].time <= horizon) {
+      const evt = this.events.shift();
+      const delayMs = Math.max(0, (evt.time - now) * 1000);
+      if (delayMs < this.lookAhead * 1000) {
+        setTimeout(() => { try { evt.callback(evt.time); } catch(e) { console.warn("Scheduler cb error", e); } }, delayMs);
+      }
+    }
+
+    this.timer = setTimeout(() => this._tick(), 25);
+  }
+
+  get currentTime() {
+    return this.audio ? this.audio.currentTime : performance.now() / 1000;
+  }
+}
+
+/* ---------- Fur Particle Pool ---------- */
+class FurParticlePool {
+  constructor(container, poolSize = 60) {
+    this.container = container;
+    this.pool = [];
+    this.active = [];
+    for (let i = 0; i < poolSize; i++) {
+      const el = document.createElement("span");
+      el.className = "fur-hair";
+      el.style.display = "none";
+      container.append(el);
+      this.pool.push(el);
+      el.addEventListener("animationend", () => this._release(el), { once: true });
+    }
+  }
+
+  _acquire() {
+    return this.pool.length > 0 ? this.pool.pop() : this._createNew();
+  }
+
+  _createNew() {
+    const el = document.createElement("span");
+    el.className = "fur-hair";
+    el.style.display = "none";
+    this.container.append(el);
+    el.addEventListener("animationend", () => this._release(el), { once: true });
+    return el;
+  }
+
+  _release(el) {
+    el.style.display = "none";
+    el.className = "fur-hair";
+    if (!this.pool.includes(el)) this.pool.push(el);
+  }
+
+  spawn(point, stageRect) {
+    const count = Math.floor(randomBetween(3, 6));
+    for (let i = 0; i < count; i++) {
+      const hair = this._acquire();
+      const length = randomBetween(8, 18);
+      const driftX = randomBetween(-58, 58);
+      const driftY = randomBetween(-50, -20);
+      hair.className = "fur-hair";
+      if (Math.random() > 0.55) hair.classList.add("curly");
+      hair.style.cssText = "";
+      hair.style.left = `${point.x - stageRect.left + randomBetween(-12, 12)}px`;
+      hair.style.top = `${point.y - stageRect.top + randomBetween(-8, 8)}px`;
+      hair.style.width = `${length}px`;
+      hair.style.rotate = `${randomBetween(-35, 35)}deg`;
+      hair.style.setProperty("--drift-x", `${driftX}px`);
+      hair.style.setProperty("--drift-y", `${driftY}px`);
+      hair.style.animationDelay = `${randomBetween(0, 70)}ms`;
+      hair.style.animation = "none";
+      hair.style.display = "block";
+      hair.offsetHeight;
+      hair.style.animation = `hair-float ${800}ms ease-out forwards`;
+    }
+  }
+}
+
+/* ---------- State ---------- */
+const state = {
+  initialized: false, initFailed: false, pendingStart: false,
+  running: false, pointerDown: false, grooming: false, watching: false,
+  score: 0, best: Number(localStorage.getItem(BEST_STORAGE_KEY) || 0),
+  distance: 0, lastPoint: null, lastMoveAt: 0,
+  comfort: 0, alert: 0, combo: 0,
+  nextWatchAt: 0, nextWatchTimer: 0, leaveWatchTimer: 0, graceTimer: 0, warningGraceUntil: 0,
+  audio: null, songBufferSource: null, songGain: null,
+  brushNoise: null, brushNoiseGain: null, brushNoiseFilter: null,
+  muted: false,
+  catIndex: 0, toolIndex: 0,
+  rhythmMode: false, songIndex: 0,
+  watchReason: "normal", watchReward: 0, watchEligible: false,
+  currentBeatKey: "rest", activeRhythmKeys: new Set(),
+  db: null, managedObjectUrls: new Set(), migrationNotice: "",
+  editingCatId: null, editingSongId: null,
+  beatDuration: 0, rhythmStartTime: 0,
+  rhythmScheduleCursor: 0, schedulerTimer: 0,
+  previewFrame: 0,
+  lastAnnouncedBeat: -Infinity, lastJudgedBeat: -1,
+  countInBeats: 4, phraseMisses: 0, phraseStartBeat: 0,
+  statsPerfect: 0, statsGood: 0, statsMiss: 0, statsMaxCombo: 0,
+  scheduler: null,
+};
+
+/* ---------- Fur pool (created on start) ---------- */
+let furPool = null;
+
+/* ---------- Helpers ---------- */
+function randomBetween(min, max) { return Math.random() * (max - min) + min; }
+function clamp(value, min, max) { return Math.min(max, Math.max(min, value)); }
+function createId(prefix) { return `${prefix}-${Math.random().toString(36).slice(2, 10)}`; }
+
+function currentAudioTime() {
+  if (state.scheduler) return state.scheduler.currentTime;
+  return state.audio ? state.audio.currentTime : performance.now() / 1000;
+}
+
+function createManagedUrl(blob) {
+  const url = URL.createObjectURL(blob);
+  state.managedObjectUrls.add(url);
+  return url;
+}
+
+window.addEventListener("beforeunload", () => {
+  for (const url of state.managedObjectUrls) URL.revokeObjectURL(url);
+  state.managedObjectUrls.clear();
+});
+
+function setJudgeState(text, tone) {
+  judgeText.textContent = text;
+  judgeText.className = tone || "";
+}
+
+function setNextKeyIndicator(eventKey) {
+  if (!state.running || !state.rhythmMode) { nextKeyIndicator.classList.remove("show"); return; }
+  const event = getBeatEvent(eventKey);
+  nextKeyIndicator.classList.remove("tap-indicator","accent-indicator","watch-indicator");
+  if (event.key === "tap") {
+    nextKeyIndicator.innerHTML = '<span class="indicator-key">J/F</span><span>梳毛</span>';
+    nextKeyIndicator.classList.add("tap-indicator","show");
+  } else if (event.key === "accent") {
+    nextKeyIndicator.innerHTML = '<span class="indicator-key accent-key">K/D</span><span>重梳!</span>';
+    nextKeyIndicator.classList.add("accent-indicator","show");
+  } else if (event.key === "look") {
+    nextKeyIndicator.innerHTML = '<span class="indicator-key">!!</span><span>松手!</span>';
+    nextKeyIndicator.classList.add("watch-indicator","show");
+  } else if (event.key === "peek") {
+    nextKeyIndicator.innerHTML = '<span class="indicator-key">!</span><span>收手</span>';
+    nextKeyIndicator.classList.add("watch-indicator","show");
+  } else {
+    nextKeyIndicator.classList.remove("show");
+  }
+}
+
+function triggerScreenShake() {
+  stage.classList.remove("screen-shake");
+  void stage.offsetWidth;
+  stage.classList.add("screen-shake");
+}
+
+function flashCat(result) {
+  catStateImg.classList.remove("cat-hit-flash","perfect-flash","miss-flash");
+  void catStateImg.offsetWidth;
+  if (result === "Perfect") { catStateImg.classList.add("cat-hit-flash","perfect-flash"); triggerScreenShake(); }
+  else if (result === "Good") { catStateImg.classList.add("cat-hit-flash"); }
+  else if (result === "Miss") { catStateImg.classList.add("miss-flash"); }
+}
+
+function spawnComboMilestone(combo) {
+  const el = document.createElement("div");
+  el.className = "combo-milestone";
+  el.textContent = `${combo} 连击!`;
+  fxLayer.append(el);
+  el.addEventListener("animationend", () => el.remove(), { once: true });
+  playBrushAccent("Perfect");
+}
+
+function getGrade(accuracy) {
+  if (accuracy >= 100) return "SS";
+  if (accuracy >= 95) return "S";
+  if (accuracy >= 85) return "A";
+  if (accuracy >= 70) return "B";
+  if (accuracy >= 55) return "C";
+  return "D";
+}
+
+function updateBeatTip(text) { beatTip.textContent = text; }
+function updateKeyHint(text) { keyHint.innerHTML = text; }
+function setCountInText(text) { countInText.textContent = text; }
+
+function describeRhythmKeys() {
+  return '<span class="keycap">J</span><span class="keycap">F</span> 普通拍 &nbsp; <span class="keycap accent-key">K</span><span class="keycap accent-key">D</span> 重拍 &nbsp; 回头/偷看 → 松手';
+}
+
+function describeSongRhythm(song) {
+  const hasLook = song.pattern.includes("look");
+  const hasPeek = song.pattern.includes("peek");
+  const hasAccent = song.pattern.includes("accent");
+  if (hasLook && hasPeek) return hasAccent ? "这首歌有重拍、偷看和回头，读谱会更关键。" : "这首歌会在空拍里偷看，也会突然回头。";
+  if (hasLook) return "这首歌会跟着重音回头，重拍后别贪手。";
+  if (hasPeek) return "这首歌会在空拍偷看，留一点收手空间。";
+  return "顺着节拍梳，空拍时记得轻轻收手。";
+}
+
+function pickRandomCatProfile() {
+  return {
+    name: RANDOM_CAT_NAMES[Math.floor(Math.random() * RANDOM_CAT_NAMES.length)],
+    personality: RANDOM_CAT_INTROS[Math.floor(Math.random() * RANDOM_CAT_INTROS.length)],
+  };
+}
+function parseBeatToken(value) {
+  if (typeof value === "number") return RHYTHM_PATTERN_ALIAS[value] || null;
+  const token = String(value || "").trim().toUpperCase();
+  return RHYTHM_PATTERN_ALIAS[token] || null;
+}
+
+function normalizeBeatToken(value) { return parseBeatToken(value) || "rest"; }
+
+function enrichSongPattern(pattern, isCustom) {
+  const normalized = pattern.map(normalizeBeatToken).filter(Boolean);
+  if (!normalized.length) return ["accent","rest","tap","peek","tap","rest","tap","look"];
+  const enriched = normalized.slice();
+  if (isCustom) {
+    if (!enriched.includes("look") && !enriched.includes("peek")) {
+      const last = enriched.length - 1;
+      enriched[last] = enriched[last] === "rest" ? "peek" : "look";
+    }
+    return enriched;
+  }
+  if (!enriched.includes("accent") && enriched[0] === "tap") enriched[0] = "accent";
+  if (!enriched.includes("look") && !enriched.includes("peek")) {
+    const spacing = enriched.length >= 8 ? 4 : Math.max(2, Math.floor(enriched.length / 2));
+    for (let index = spacing - 1; index < enriched.length; index += spacing) {
+      if (index === enriched.length - 1) enriched[index] = enriched[index] === "rest" ? "peek" : "look";
+      else if (enriched[index] === "rest") enriched[index] = "peek";
+    }
+    if (!enriched.includes("peek") && enriched.length > 4) {
+      const middle = Math.floor(enriched.length / 2);
+      if (enriched[middle] === "rest") enriched[middle] = "peek";
+    }
+    if (!enriched.includes("look")) {
+      const last = enriched.length - 1;
+      enriched[last] = enriched[last] === "rest" ? "peek" : "look";
+    }
+  }
+  return enriched;
+}
+
+function normalizeSongDefinition(song) {
+  return {
+    ...song,
+    builtin: Boolean(song.builtin), custom: Boolean(song.custom), override: Boolean(song.override),
+    audioBlob: song.audioBlob || null, audioBuffer: song.audioBuffer || null,
+    pattern: enrichSongPattern(Array.isArray(song.pattern) ? song.pattern : [], Boolean(song.custom)),
+    patternProvided: Boolean(song.patternProvided),
+    source: song.source === "auto" ? "auto" : "manual",
+  };
+}
+
+function normalizeCatDefinition(cat) {
+  return {
+    ...cat,
+    builtin: Boolean(cat.builtin), custom: Boolean(cat.custom), override: Boolean(cat.override),
+    difficulty: { ...BASE_DIFFICULTY, ...(cat.difficulty || {}) },
+    relaxBlob: cat.relaxBlob || null, angryBlob: cat.angryBlob || null,
+  };
+}
+
+function getCurrentCat() { return cats[state.catIndex]; }
+function getCurrentSong() { return songs[state.songIndex]; }
+function getCurrentTool() { return tools[state.toolIndex]; }
+function getCurrentDifficulty() { return getCurrentCat()?.difficulty || BASE_DIFFICULTY; }
+
+async function ensureSongAudioDecoded(song) {
+  if (!song || song.audioBuffer || !song.audioBlob) return song;
+  song.audioBuffer = await decodeAudioBlob(song.audioBlob);
+  return song;
+}
+
+/* ---------- IndexedDB ---------- */
+function openDatabase() {
+  return new Promise((resolve, reject) => {
+    const request = window.indexedDB.open(DB_NAME, DB_VERSION);
+    request.onerror = () => reject(request.error);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(DB_CAT_STORE)) db.createObjectStore(DB_CAT_STORE, { keyPath: "id" });
+      if (!db.objectStoreNames.contains(DB_SONG_STORE)) db.createObjectStore(DB_SONG_STORE, { keyPath: "id" });
+      if (!db.objectStoreNames.contains(DB_META_STORE)) db.createObjectStore(DB_META_STORE, { keyPath: "key" });
+    };
+    request.onsuccess = () => resolve(request.result);
+  });
+}
+
+function idbGetAll(storeName) {
+  return new Promise((resolve, reject) => {
+    const tx = state.db.transaction(storeName, "readonly");
+    const store = tx.objectStore(storeName);
+    const request = store.getAll();
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve(request.result || []);
+  });
+}
+
+function idbGet(storeName, key) {
+  return new Promise((resolve, reject) => {
+    const tx = state.db.transaction(storeName, "readonly");
+    const store = tx.objectStore(storeName);
+    const request = store.get(key);
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve(request.result);
+  });
+}
+
+function idbReplaceAll(storeName, records) {
+  return new Promise((resolve, reject) => {
+    const tx = state.db.transaction(storeName, "readwrite");
+    const store = tx.objectStore(storeName);
+    const clearRequest = store.clear();
+    clearRequest.onerror = () => reject(clearRequest.error);
+    clearRequest.onsuccess = () => { for (const record of records) store.put(record); };
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+function idbDelete(storeName, key) {
+  return new Promise((resolve, reject) => {
+    const tx = state.db.transaction(storeName, "readwrite");
+    tx.objectStore(storeName).delete(key);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+function idbPut(storeName, record) {
+  return new Promise((resolve, reject) => {
+    const tx = state.db.transaction(storeName, "readwrite");
+    tx.objectStore(storeName).put(record);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+function isStableImageSource(src) {
+  if (!src || typeof src !== "string") return false;
+  return !src.startsWith("blob:");
+}
+
+async function migrateLegacyStorageIfNeeded() {
+  const migrated = await idbGet(DB_META_STORE, META_MIGRATED_KEY);
+  if (migrated?.value) return;
+  const legacyCatNotes = [], legacySongNotes = [], catRecords = [], songRecords = [];
+  try {
+    const rawCats = localStorage.getItem(LEGACY_CUSTOM_CATS_STORAGE_KEY);
+    if (rawCats) {
+      const parsedCats = JSON.parse(rawCats);
+      if (Array.isArray(parsedCats)) {
+        for (const cat of parsedCats) {
+          if (!isStableImageSource(cat.relaxImg) || !isStableImageSource(cat.angryImg)) { legacyCatNotes.push("旧自定义猫的图片无法恢复，需要重新设置。"); continue; }
+          catRecords.push({ id: cat.id || createId("custom-cat"), custom: true, builtin: false, override: false, name: cat.name || "自定义猫", personality: cat.personality || "神秘的梳毛客人。", difficulty: { ...BASE_DIFFICULTY, ...(cat.difficulty || {}) }, relaxSrc: cat.relaxImg, angrySrc: cat.angryImg, combinedImg: cat.combinedImg || "", displayAspectRatio: cat.displayAspectRatio || null });
+        }
+      }
+    }
+    const rawSongs = localStorage.getItem(LEGACY_CUSTOM_SONGS_STORAGE_KEY);
+    if (rawSongs) {
+      const parsedSongs = JSON.parse(rawSongs);
+      if (Array.isArray(parsedSongs)) {
+        for (const song of parsedSongs) { songRecords.push({ id: song.id || createId("custom-song"), custom: true, builtin: false, override: false, name: song.name || "迁移节拍", bpm: Number(song.bpm) || 100, pattern: Array.isArray(song.pattern) ? song.pattern : [], audioBlob: null }); }
+        if (parsedSongs.length) legacySongNotes.push("旧自定义歌曲的节拍已迁移，音频需要重新选择一次。");
+      }
+    }
+  } catch (error) { console.warn("Failed to migrate legacy storage", error); }
+  if (catRecords.length) await idbReplaceAll(DB_CAT_STORE, catRecords);
+  if (songRecords.length) await idbReplaceAll(DB_SONG_STORE, songRecords);
+  await idbPut(DB_META_STORE, { key: META_MIGRATED_KEY, value: true });
+  localStorage.removeItem(LEGACY_CUSTOM_CATS_STORAGE_KEY);
+  localStorage.removeItem(LEGACY_CUSTOM_SONGS_STORAGE_KEY);
+  const notes = [...legacyCatNotes, ...legacySongNotes];
+  if (notes.length) state.migrationNotice = notes[0];
+}
+
+/* ---------- Audio ---------- */
+function ensureAudioContext() {
+  if (!state.audio) {
+    state.audio = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  if (!state.songGain) {
+    state.songGain = state.audio.createGain();
+    state.songGain.gain.value = 0.18;
+    state.songGain.connect(state.audio.destination);
+  }
+}
+
+function unlockAudio() {
+  ensureAudioContext();
+  if (state.audio.state === "suspended") state.audio.resume();
+}
+
+function decodeAudioBlob(blob) {
+  if (!blob) return Promise.resolve(null);
+  ensureAudioContext();
+  /* 确保 AudioContext 不被浏览器挂起（尤其 file:// 协议下） */
+  try { if (state.audio.state === "suspended") state.audio.resume(); } catch(e) {}
+  return blob.arrayBuffer().then(function(bytes) {
+    /* .slice(0) 复制一份 ArrayBuffer，避免某些浏览器对 detached buffer 报错 */
+    var copy = bytes.slice(0);
+    return state.audio.decodeAudioData(copy).catch(function(err) {
+      console.warn("decodeAudioData Promise 失败，尝试回调方式", err);
+      return new Promise(function(resolve, reject) {
+        state.audio.decodeAudioData(copy, resolve, reject);
+      });
+    });
+  }).catch(function(err) {
+    console.warn("音频解码失败，将保存无音频的歌曲", err);
+    return null;
+  });
+}
+
+function loadImage(src) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = reject;
+    image.src = src;
+  });
+}
+
+async function combineStateImages(angrySrc, relaxSrc) {
+  const [angry, relax] = await Promise.all([loadImage(angrySrc), loadImage(relaxSrc)]);
+  const angryWidth = angry.naturalWidth || angry.width;
+  const angryHeight = angry.naturalHeight || angry.height;
+  const relaxWidth = relax.naturalWidth || relax.width;
+  const relaxHeight = relax.naturalHeight || relax.height;
+  const halfWidth = Math.max(angryWidth, relaxWidth);
+  const height = Math.max(angryHeight, relaxHeight);
+  const canvas = document.createElement("canvas");
+  canvas.width = halfWidth * 2;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(angry, 0, Math.max(0, (height - angryHeight) / 2));
+  ctx.drawImage(relax, halfWidth, Math.max(0, (height - relaxHeight) / 2));
+  return { src: canvas.toDataURL("image/png"), aspectRatio: halfWidth / height };
+}
+
+function getDisplayedCatImage(cat) {
+  cat = cat || getCurrentCat();
+  if (!cat) return "";
+  var img = state.watching ? (cat.angryImg || cat.relaxImg) : (cat.relaxImg || cat.angryImg);
+  /* decodeURI：BUILTIN_CAT_SPECS 里用 encodeURI 处理了中文路径，
+     需要 decode 回来才能被浏览器正确加载 */
+  try { img = decodeURI(img); } catch(e) { /* 已经是原始路径，无需解码 */ }
+  return img;
+}
+
+/* ---------- Build cats / songs ---------- */
+async function buildBuiltinCats(storedCatRecords) {
+  const overrides = new Map(storedCatRecords.filter((item) => item.override).map((item) => [item.id, item]));
+  return Promise.all(BUILTIN_CAT_SPECS.map(async (spec) => {
+    const profile = pickRandomCatProfile();
+    const override = overrides.get(spec.id);
+    const baseCat = normalizeCatDefinition({ id: spec.id, builtin: true, custom: false, override: false, originLabel: spec.label, name: profile.name, personality: profile.personality, relaxImg: spec.relaxImg, angryImg: spec.angryImg, difficulty: { ...BASE_DIFFICULTY, ...(spec.difficulty || {}) } });
+    const merged = normalizeCatDefinition({ ...baseCat, ...(override || {}), builtin: true, custom: false, override: Boolean(override), originLabel: spec.label, difficulty: { ...baseCat.difficulty, ...(override?.difficulty || {}) } });
+    if (override?.relaxBlob) merged.relaxImg = createManagedUrl(override.relaxBlob);
+    else if (override?.relaxSrc) merged.relaxImg = override.relaxSrc;
+    if (override?.angryBlob) merged.angryImg = createManagedUrl(override.angryBlob);
+    else if (override?.angrySrc) merged.angryImg = override.angrySrc;
+    return normalizeCatDefinition(merged);
+  }));
+}
+
+async function hydrateStoredCustomCat(record) {
+  const relaxImg = record.relaxBlob ? createManagedUrl(record.relaxBlob) : record.relaxSrc;
+  const angryImg = record.angryBlob ? createManagedUrl(record.angryBlob) : record.angrySrc;
+  if (!relaxImg || !angryImg) return null;
+  return normalizeCatDefinition({ ...record, relaxImg, angryImg });
+}
+
+async function buildSongs(storedSongRecords) {
+  const overrides = new Map(storedSongRecords.filter((item) => item.override).map((item) => [item.id, item]));
+  const builtins = await Promise.all(BUILTIN_SONG_DEFS.map(async (song) => {
+    const override = overrides.get(song.id);
+    const merged = normalizeSongDefinition({ ...song, ...(override || {}), builtin: true, custom: false, override: Boolean(override) });
+    if (override?.audioBlob) merged.audioBlob = override.audioBlob;
+    return merged;
+  }));
+  const customs = [];
+  for (const record of storedSongRecords.filter((item) => item.custom)) {
+    const hydrated = normalizeSongDefinition(record);
+    customs.push(hydrated);
+  }
+  return [...builtins, ...customs];
+}
+
+async function hydrateGameData() {
+  const [storedCatRecords, storedSongRecords] = await Promise.all([idbGetAll(DB_CAT_STORE), idbGetAll(DB_SONG_STORE)]);
+  const [builtCats, builtSongs] = await Promise.all([buildBuiltinCats(storedCatRecords), buildSongs(storedSongRecords)]);
+  const customCats = [];
+  for (const record of storedCatRecords.filter((item) => item.custom)) { const cat = await hydrateStoredCustomCat(record); if (cat) customCats.push(cat); }
+  cats.splice(0, cats.length, ...builtCats, ...customCats);
+  songs.splice(0, songs.length, ...builtSongs);
+  state.catIndex = clamp(state.catIndex, 0, Math.max(0, cats.length - 1));
+  state.songIndex = clamp(state.songIndex, 0, Math.max(0, songs.length - 1));
+}
+
+function serializeCatRecord(cat) {
+  return { id: cat.id, builtin: cat.builtin, custom: cat.custom, override: cat.override, name: cat.name, personality: cat.personality, difficulty: cat.difficulty, relaxBlob: cat.relaxBlob || null, angryBlob: cat.angryBlob || null, relaxSrc: cat.relaxBlob ? null : cat.relaxImg, angrySrc: cat.angryBlob ? null : cat.angryImg, combinedImg: cat.combinedImg || "", displayAspectRatio: cat.displayAspectRatio || null };
+}
+
+function serializeSongRecord(song) {
+  return { id: song.id, builtin: song.builtin, custom: song.custom, override: song.override, name: song.name, bpm: song.bpm, pattern: song.pattern, audioBlob: song.audioBlob || null };
+}
+
+async function persistCats() {
+  const records = cats.filter((cat) => cat.custom || cat.override).map(serializeCatRecord);
+  await idbReplaceAll(DB_CAT_STORE, records);
+}
+
+async function persistSongs() {
+  const records = songs.filter((song) => song.custom || song.override).map(serializeSongRecord);
+  await idbReplaceAll(DB_SONG_STORE, records);
+}
+
+/* ---------- Input helpers ---------- */
+function pointInsideCat(point) {
+  const rect = catZone.getBoundingClientRect();
+  return point.x >= rect.left && point.x <= rect.right && point.y >= rect.top && point.y <= rect.bottom;
+}
+
+function getPoint(event) {
+  const touch = event.touches?.[0] || event.changedTouches?.[0];
+  return { x: touch ? touch.clientX : event.clientX, y: touch ? touch.clientY : event.clientY };
+}
+
+function moveComb(point) {
+  const rect = stage.getBoundingClientRect();
+  combGhost.style.left = `${point.x - rect.left}px`;
+  combGhost.style.top = `${point.y - rect.top}px`;
+  combGhost.classList.add("visible");
+}
+
+function isUiInteractionTarget(target) {
+  if (!(target instanceof Element)) return false;
+  return Boolean(target.closest(".modal.show, .overlay.show, .hud, .care-panel, .rhythm-panel, .selector, .mute-btn, .panel, button, input, label, select, textarea"));
+}
+
+/* ---------- UI updates ---------- */
+function updateCareMeters() {
+  comfortFill.style.width = `${Math.round(state.comfort)}%`;
+  alertFill.style.width = `${Math.round(state.alert)}%`;
+  comboText.textContent = `连击 x${state.combo}`;
+  comboText.classList.toggle("combo-hot", state.combo >= 25);
+}
+
+function updateMuteButton() {
+  muteBtn.textContent = state.muted ? "🔇" : "🔊";
+  muteBtn.setAttribute("aria-label", state.muted ? "开启声音" : "静音");
+}
+
+function updateOverlayCopy() {
+  messageEl.textContent = state.rhythmMode
+    ? "跟着节拍梳毛：重拍更赚分，回头和偷看时要及时收手。"
+    : "按住并在猫身上移动来梳毛。它会随机回头，而且盯你的时间并不固定。";
+}
+
+/* ---------- Apply cat/song/tool ---------- */
+function applyCat({ resetToRelaxed } = {}) {
+  const cat = normalizeCatDefinition(getCurrentCat());
+  cats[state.catIndex] = cat;
+  const imgSrc = getDisplayedCatImage(cat);
+  catStateImg.src = imgSrc;
+  catStateImg.alt = cat.name;
+  catStateImg.onerror = function() {
+    console.warn("猫图加载失败:", imgSrc, "→ 尝试解码回退");
+    try { catStateImg.src = decodeURI(imgSrc); }
+    catch(e) { catStateImg.src = "assets/阳光小橘0.png"; }
+  };
+  catNameEl.textContent = cat.name;
+  catPersonalityEl.textContent = cat.personality;
+  deleteCatBtn.disabled = cat.builtin;
+  editCatBtn.disabled = false;
+  if (cat.displayAspectRatio) catZone.style.aspectRatio = String(cat.displayAspectRatio);
+  else catZone.style.removeProperty("aspect-ratio");
+  if (resetToRelaxed) { state.watching = false; setRelaxedState(); }
+}
+
+function applySong() {
+  const song = getCurrentSong();
+  songNameEl.textContent = song.name;
+  songBpmEl.textContent = `${song.bpm} BPM`;
+  deleteSongBtn.disabled = song.builtin;
+  editSongBtn.disabled = false;
+  if (state.rhythmMode) {
+    updateBeatTip(describeSongRhythm(song));
+    updateKeyHint(describeRhythmKeys());
+  }
+}
+
+function applyTool() {
+  const tool = getCurrentTool();
+  toolNameEl.textContent = tool.name;
+  toolIcon.src = tool.img;
+  toolIcon.alt = tool.name;
+  combGhost.src = tool.img;
+  stage.style.cursor = `url("${tool.img}") ${tool.cursorHotspot}, auto`;
+}
+
+
+/* ---------- Watch state machine ---------- */
+function setRelaxedState() {
+  state.watching = false;
+  state.warningGraceUntil = 0;
+  catStateImg.src = getDisplayedCatImage();
+  moodEl.textContent = "放松";
+  stage.classList.remove("watching", "grace");
+  stage.classList.add("relaxed");
+}
+
+function setWarningState() {
+  catStateImg.src = getDisplayedCatImage();
+  moodEl.textContent = "警觉";
+  stage.classList.remove("relaxed");
+  stage.classList.add("watching", "grace");
+}
+
+function getWarningDynamicCut() { return Math.floor(state.score / 20) * 0.03; }
+
+function clearTimers() {
+  window.clearTimeout(state.nextWatchTimer);
+  window.clearTimeout(state.leaveWatchTimer);
+  window.clearTimeout(state.graceTimer);
+  window.clearTimeout(state.schedulerTimer);
+  if (state.previewFrame) cancelAnimationFrame(state.previewFrame);
+  state.nextWatchTimer = 0;
+  state.leaveWatchTimer = 0;
+  state.graceTimer = 0;
+  state.schedulerTimer = 0;
+  state.previewFrame = 0;
+  if (state.scheduler) state.scheduler.stop();
+}
+
+function scheduleWatch() {
+  window.clearTimeout(state.nextWatchTimer);
+  state.nextWatchTimer = 0;
+  state.nextWatchAt = 0;
+  if (!state.running || state.rhythmMode || !state.grooming || state.watching) return;
+  const difficulty = getCurrentDifficulty();
+  const minTime = difficulty.minRelaxedTime;
+  const maxTime = Math.max(minTime, difficulty.maxRelaxedTime);
+  const alertPressure = state.alert / 100;
+  const relaxedWindowMs = Math.max(0.8, randomBetween(minTime, maxTime) * (1 - alertPressure * 0.55)) * 1000;
+  state.nextWatchAt = performance.now() + relaxedWindowMs;
+  state.nextWatchTimer = window.setTimeout(() => {
+    state.nextWatchTimer = 0;
+    state.nextWatchAt = 0;
+    if (!state.running || state.rhythmMode || state.watching || !state.grooming || !state.pointerDown) return;
+    enterWatch();
+  }, relaxedWindowMs);
+}
+
+function maybeEnterWatch() {
+  if (!state.running || !state.grooming || state.rhythmMode || state.watching) return;
+  if (state.alert >= 100) {
+    enterWatch({ reason: "normal", reward: 0, graceMs: Math.max(220, getCurrentDifficulty().reactionTime * 1000 * 0.75) });
+    return;
+  }
+  if (!state.nextWatchTimer) scheduleWatch();
+}
+
+function enterWatch(options = {}) {
+  const { reason = "normal", reward = 0, graceMs = null, watchMs = null, allowIdle = false } = options;
+  if (!state.running || state.watching) return;
+  if (!allowIdle && !state.grooming) { setRelaxedState(); return; }
+
+  window.clearTimeout(state.nextWatchTimer);
+  window.clearTimeout(state.leaveWatchTimer);
+  window.clearTimeout(state.graceTimer);
+  state.nextWatchTimer = 0;
+  state.nextWatchAt = 0;
+  state.watching = true;
+  state.watchReason = reason;
+  state.watchReward = reward;
+  state.watchEligible = state.pointerDown || state.grooming || state.activeRhythmKeys.size > 0;
+  state.lastPoint = null;
+  stopBrushLoop();
+  setWarningState();
+
+  const difficulty = getCurrentDifficulty();
+  const reactionTime = difficulty.reactionTime || BASE_DIFFICULTY.reactionTime;
+  const graceDuration = graceMs ?? reactionTime * 1000;
+  const minTime = Math.max(0.2, difficulty.minWarningTime);
+  const maxTime = Math.max(0.2, difficulty.maxWarningTime - getWarningDynamicCut());
+  const watchDuration = watchMs ?? randomBetween(minTime, Math.max(minTime, maxTime)) * 1000;
+
+  state.warningGraceUntil = performance.now() + graceDuration;
+  state.graceTimer = window.setTimeout(checkWarningGrace, graceDuration);
+  state.leaveWatchTimer = window.setTimeout(leaveWatch, watchDuration);
+
+  if (reason === "look") {
+    setJudgeState("回头", "miss");
+    updateBeatTip("回头拍到了，这一拍别继续梳。");
+    updateKeyHint("立刻松开鼠标或按键");
+  } else if (reason === "peek") {
+    setJudgeState("偷看", "good");
+    updateBeatTip("偷看时间很短，轻轻收手。");
+    updateKeyHint("保持松手，别贪拍");
+  } else {
+    setJudgeState("回头", "miss");
+    updateBeatTip("它回头了，先别继续梳。");
+  }
+}
+
+function checkWarningGrace() {
+  if (!state.running || !state.watching) return;
+  stage.classList.remove("grace");
+  if (state.grooming) endGame();
+}
+
+function leaveWatch() {
+  if (!state.running) return;
+  const avoidedInTime = !state.grooming;
+  if (state.rhythmMode && state.watchReward > 0 && state.watchEligible && avoidedInTime) {
+    state.score += state.watchReward;
+    scoreEl.textContent = String(state.score);
+    state.alert = clamp(state.alert - (state.watchReason === "look" ? 8 : 5), 0, 100);
+    spawnHint(`收手 +${state.watchReward}`, "#b8ffb1");
+    playBrushAccent("Good");
+  } else {
+    state.alert = Math.max(0, state.alert - 35);
+  }
+  state.watching = false;
+  state.warningGraceUntil = 0;
+  state.watchReason = "normal";
+  state.watchReward = 0;
+  state.watchEligible = false;
+  stage.classList.remove("grace");
+  setRelaxedState();
+  updateCareMeters();
+  if (state.rhythmMode) {
+    setJudgeState("继续");
+    updateBeatTip(describeSongRhythm(getCurrentSong()));
+    updateKeyHint(describeRhythmKeys());
+  } else if (state.grooming) {
+    scheduleWatch();
+  }
+}
+
+function resetFurPile() {
+  fxLayer.replaceChildren();
+  floorFur.replaceChildren();
+  thinFur.style.opacity = "0";
+}
+
+/* ---------- Game Start / End ---------- */
+function startGame() {
+  if (!state.initialized) {
+    state.pendingStart = true;
+    startBtn.textContent = "继续加载中...";
+    setJudgeState("加载中", "good");
+    updateBeatTip("猫咪资料和节奏资源还在准备，马上就好。");
+    return;
+  }
+  clearTimers();
+  stopRhythmTrack();
+  unlockAudio();
+
+  if (!state.scheduler) state.scheduler = new LookAheadScheduler(state.audio);
+  furPool = furPool || new FurParticlePool(fxLayer, 60);
+
+  state.running = true;
+  state.pointerDown = false;
+  state.grooming = false;
+  state.watching = false;
+  state.score = 0;
+  state.distance = 0;
+  state.lastPoint = null;
+  state.lastMoveAt = 0;
+  state.comfort = 0;
+  state.alert = 0;
+  state.combo = 0;
+  state.nextWatchAt = 0;
+  state.currentBeatKey = "rest";
+  state.watchReason = "normal";
+  state.watchReward = 0;
+  state.watchEligible = false;
+  state.activeRhythmKeys.clear();
+  state.lastJudgedBeat = -1;
+  state.phraseMisses = 0;
+  state.phraseStartBeat = 0;
+  state.statsPerfect = 0;
+  state.statsGood = 0;
+  state.statsMiss = 0;
+  state.statsMaxCombo = 0;
+  scoreEl.textContent = "0";
+  updateCareMeters();
+  setRelaxedState();
+  overlay.classList.remove("show");
+  deathTitle.classList.remove("show");
+  stage.classList.remove("jumpscare", "brushing");
+  resetFurPile();
+  setCountInText("");
+  setJudgeState(state.rhythmMode ? "预备" : "准备");
+  updateBeatTip(state.rhythmMode ? describeSongRhythm(getCurrentSong()) : "普通模式下，小猫会随机回头。");
+  updateKeyHint(state.rhythmMode ? describeRhythmKeys() : "普通模式主要用鼠标或触摸梳毛。");
+  if (state.initFailed) updateBeatTip("已用降级数据启动，功能可以正常玩。");
+  if (state.rhythmMode) startRhythmTrack();
+}
+
+function endGame(reason, songEndData) {
+  if (!state.running) return;
+  reason = reason || "caught";
+  state.running = false;
+  state.pointerDown = false;
+  state.grooming = false;
+  state.activeRhythmKeys.clear();
+  clearTimers();
+  stopBrushLoop();
+  stopRhythmTrack();
+  nextKeyIndicator.classList.remove("show");
+  stage.classList.remove("brushing", "grace");
+
+  /* 歌曲自然结束 ≠ 被猫抓 */
+  var isSongEnd = reason === "songEnd";
+  if (isSongEnd) {
+    setRelaxedState();
+    moodEl.textContent = "演奏结束";
+    setJudgeState("Finished", "perfect");
+  } else {
+    setWarningState();
+    moodEl.textContent = "被抓";
+    deathTitle.classList.add("show");
+    playFailSound();
+    stage.classList.add("jumpscare");
+    window.setTimeout(function() { stage.classList.remove("jumpscare"); }, 900);
+  }
+
+  if (state.score > state.best) {
+    state.best = state.score;
+    localStorage.setItem(BEST_STORAGE_KEY, String(state.best));
+    bestEl.textContent = String(state.best);
+  }
+
+  const totalJudged = state.statsPerfect + state.statsGood + state.statsMiss;
+  const accuracy = totalJudged > 0
+    ? Math.round(((state.statsPerfect * 100 + state.statsGood * 50) / totalJudged) * 10) / 10
+    : 0;
+  const grade = getGrade(accuracy);
+  const isFullCombo = state.statsMiss === 0 && totalJudged > 0;
+
+  window.setTimeout(function() {
+    if (state.rhythmMode && totalJudged > 0) {
+      messageEl.textContent = isFullCombo
+        ? (isSongEnd ? "Full Combo! 完美演奏!" : "完美! 一次都没被抓到!")
+        : (isSongEnd ? "歌曲结束！得分：" + state.score : "本局分数：" + state.score);
+      statsBlock.classList.add("show");
+      statsGrade.textContent = grade;
+      statsGrade.className = "stats-grade grade-" + grade.toLowerCase();
+      statsMaxCombo.textContent = String(state.statsMaxCombo);
+      statsAccuracy.textContent = accuracy + "%";
+      statsJudges.textContent = state.statsPerfect + "P / " + state.statsGood + "G / " + state.statsMiss + "M";
+    } else if (isSongEnd) {
+      messageEl.textContent = "歌曲结束！得分：" + state.score;
+      statsBlock.classList.add("show");
+      statsGrade.textContent = "--";
+      statsGrade.className = "stats-grade";
+      statsMaxCombo.textContent = String(state.statsMaxCombo);
+      statsAccuracy.textContent = "--";
+      statsJudges.textContent = "0/0/0";
+    } else {
+      messageEl.textContent = "你被发现了。本局分数：" + state.score;
+      statsBlock.classList.remove("show");
+    }
+    startBtn.textContent = "再来一次";
+    overlay.classList.add("show");
+  }, isSongEnd ? 400 : 850);
+}
+
+/* ---------- Audio synthesis ---------- */
+function startSongAudio(syncStartTime, audioOffset) {
+  stopSongAudio();
+  var song = getCurrentSong();
+  if (!song.audioBuffer || !state.audio || state.muted) return;
+
+  var source = state.audio.createBufferSource();
+  source.buffer = song.audioBuffer;
+  source.loop = false;
+  source.connect(state.songGain);
+
+  var offset = audioOffset || 0;
+  var startAt = Math.max(state.audio.currentTime + 0.02, syncStartTime + offset);
+
+  /* 歌曲自然结束时自动结算 */
+  source.onended = function() {
+    if (!state.running || !state.rhythmMode) return;
+    var songEndData = {
+      totalBeats: Math.floor((source.buffer.duration - offset) / state.beatDuration),
+    };
+    endGame("songEnd", songEndData);
+  };
+
+  source.start(startAt, offset);
+  state.songBufferSource = source;
+}
+
+function stopSongAudio() {
+  if (!state.songBufferSource) return;
+  try { state.songBufferSource.stop(); } catch {}
+  state.songBufferSource.disconnect();
+  state.songBufferSource = null;
+}
+
+function ensureBrushLoop() {
+  if (!state.audio || state.muted) return;
+  if (state.brushNoise) return;
+  const sampleRate = state.audio.sampleRate;
+  const buffer = state.audio.createBuffer(1, sampleRate * 2, sampleRate);
+  const data = buffer.getChannelData(0);
+  let previous = 0;
+  for (let i = 0; i < data.length; i += 1) { previous = previous * 0.82 + (Math.random() * 2 - 1) * 0.18; data[i] = previous; }
+  const source = state.audio.createBufferSource();
+  const high = state.audio.createBiquadFilter();
+  const band = state.audio.createBiquadFilter();
+  const volume = state.audio.createGain();
+  source.buffer = buffer;
+  source.loop = true;
+  high.type = "highpass"; high.frequency.value = 180;
+  band.type = "bandpass"; band.frequency.value = 950; band.Q.value = 0.8;
+  volume.gain.value = 0.0001;
+  source.connect(high).connect(band).connect(volume).connect(state.audio.destination);
+  source.start();
+  state.brushNoise = source; state.brushNoiseGain = volume; state.brushNoiseFilter = band;
+}
+
+function updateBrushLoop(speed) {
+  unlockAudio();
+  if (!state.audio || state.muted || !state.grooming || state.watching) return;
+  ensureBrushLoop();
+  const now = state.audio.currentTime;
+  const intensity = clamp(speed / 900, 0.12, 1);
+  state.brushNoiseFilter.frequency.setTargetAtTime(650 + intensity * 1450, now, 0.03);
+  state.brushNoiseGain.gain.setTargetAtTime(0.012 + intensity * 0.035, now, 0.025);
+}
+
+function stopBrushLoop() {
+  if (!state.audio || !state.brushNoiseGain) return;
+  state.brushNoiseGain.gain.setTargetAtTime(0.0001, state.audio.currentTime, 0.04);
+}
+
+function tone({ frequency, duration, type = "sine", gain = 0.05, delay = 0 }) {
+  if (!state.audio || state.muted) return;
+  const now = state.audio.currentTime + delay;
+  const oscillator = state.audio.createOscillator();
+  const volume = state.audio.createGain();
+  oscillator.type = type;
+  oscillator.frequency.setValueAtTime(frequency, now);
+  volume.gain.setValueAtTime(0.0001, now);
+  volume.gain.exponentialRampToValueAtTime(gain, now + 0.015);
+  volume.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+  oscillator.connect(volume).connect(state.audio.destination);
+  oscillator.start(now);
+  oscillator.stop(now + duration + 0.02);
+}
+
+function noiseBurst({ duration = 0.08, gain = 0.03, delay = 0, lowpass = 1800, highpass = 260 } = {}) {
+  if (!state.audio || state.muted) return;
+  const now = state.audio.currentTime + delay;
+  const sampleRate = state.audio.sampleRate;
+  const buffer = state.audio.createBuffer(1, Math.ceil(sampleRate * duration), sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < data.length; i += 1) { data[i] = (Math.random() * 2 - 1) * (1 - i / data.length); }
+  const source = state.audio.createBufferSource();
+  const high = state.audio.createBiquadFilter();
+  const low = state.audio.createBiquadFilter();
+  const volume = state.audio.createGain();
+  source.buffer = buffer;
+  high.type = "highpass"; high.frequency.setValueAtTime(highpass, now);
+  low.type = "lowpass"; low.frequency.setValueAtTime(lowpass, now);
+  volume.gain.setValueAtTime(0.0001, now);
+  volume.gain.linearRampToValueAtTime(gain, now + 0.01);
+  volume.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+  source.connect(high).connect(low).connect(volume).connect(state.audio.destination);
+  source.start(now);
+  source.stop(now + duration + 0.02);
+}
+
+function playRustleSound() { unlockAudio(); noiseBurst({ duration: 0.09, gain: 0.022, lowpass: 1500, highpass: 420 }); noiseBurst({ duration: 0.05, gain: 0.012, delay: 0.03, lowpass: 2200, highpass: 700 }); }
+function playPurrSound() { unlockAudio(); tone({ frequency: 72, duration: 0.16, type: "triangle", gain: 0.025 }); tone({ frequency: 92, duration: 0.12, type: "sine", gain: 0.018, delay: 0.05 }); }
+function playBrushAccent(result) { unlockAudio(); const gain = result === "Perfect" ? 0.032 : 0.018; noiseBurst({ duration: 0.055, gain, lowpass: result === "Perfect" ? 2600 : 1900, highpass: 360 }); }
+function playMissSound() { unlockAudio(); tone({ frequency: 180, duration: 0.08, type: "sawtooth", gain: 0.02 }); }
+function playFailSound() { unlockAudio(); tone({ frequency: 980, duration: 0.26, type: "square", gain: 0.12 }); tone({ frequency: 1420, duration: 0.2, type: "sawtooth", gain: 0.09, delay: 0.08 }); }
+
+function playCountInSound(count, delay = 0) {
+  unlockAudio();
+  const strong = count === 1;
+  tone({ frequency: strong ? 960 : 760, duration: strong ? 0.09 : 0.06, type: strong ? "square" : "triangle", gain: strong ? 0.045 : 0.028, delay });
+}
+
+function playBeatSound(beatEvent, delay = 0) {
+  unlockAudio();
+  if (beatEvent.key === "look") { tone({ frequency: 620, duration: 0.08, type: "square", gain: 0.04, delay }); tone({ frequency: 310, duration: 0.08, type: "triangle", gain: 0.025, delay: delay + 0.04 }); }
+  else if (beatEvent.key === "peek") { tone({ frequency: 520, duration: 0.05, type: "triangle", gain: 0.02, delay }); }
+  else if (beatEvent.key === "accent") { tone({ frequency: 920, duration: 0.05, type: "square", gain: 0.03, delay }); tone({ frequency: 460, duration: 0.04, type: "triangle", gain: 0.012, delay: delay + 0.03 }); }
+  else if (beatEvent.key === "rest") { tone({ frequency: 700, duration: 0.025, type: "sine", gain: 0.012, delay }); }
+  else { tone({ frequency: 880, duration: 0.035, type: "sine", gain: 0.025, delay }); }
+}
+
+/* ---------- Rhythm track (refactored: LookAheadScheduler) ---------- */
+function stopRhythmTrack() {
+  window.clearTimeout(state.schedulerTimer);
+  state.schedulerTimer = 0;
+  if (state.previewFrame) cancelAnimationFrame(state.previewFrame);
+  state.previewFrame = 0;
+  rhythmPreview.innerHTML = "";
+  setCountInText("");
+  stopSongAudio();
+  if (state.scheduler) state.scheduler.stop();
+}
+
+function getBeatEvent(eventKey) { return RHYTHM_EVENT_DEFS[eventKey] || RHYTHM_EVENT_DEFS.rest; }
+
+function getBeatEventAt(beatIndex) {
+  const song = getCurrentSong();
+  const patternIndex = ((beatIndex % song.pattern.length) + song.pattern.length) % song.pattern.length;
+  const eventKey = song.pattern[patternIndex];
+  return { ...getBeatEvent(eventKey), patternIndex };
+}
+
+function getJudgeWindows(beatEvent, bpm) {
+  const beatMs = 60000 / bpm;
+  const perfectWindow = clamp(Math.round(beatMs * 0.18), 55, beatEvent.key === "accent" ? 96 : 88);
+  const judgeWindow = clamp(Math.round(beatMs * 0.42), 120, beatEvent.key === "accent" ? 235 : 215);
+  return { perfectWindow, judgeWindow };
+}
+
+function rhythmBeatTime(beatNumber) {
+  /* hitTime = songStartAudioTime + audioOffset + (beatIndex * 60/bpm)
+     audioOffset 补偿 MP3 编码器静音填充，和 startSongAudio 的 offset 对齐 */
+  return state.songStartAudioTime + (state.audioOffset || 0) + beatNumber * state.beatDuration;
+}
+
+function completePhraseIfNeeded(beatNumber) {
+  if (beatNumber <= 0 || beatNumber % 8 !== 0) return;
+  if (state.phraseMisses === 0) {
+    state.score += 6;
+    scoreEl.textContent = String(state.score);
+    spawnHint("小节 Clear +6", "#b8ffb1");
+    playBrushAccent("Perfect");
+  }
+  state.phraseMisses = 0;
+  state.phraseStartBeat = beatNumber;
+}
+
+function buildBeatTip(beatNumber, beatEvent) {
+  const nextEvent = getBeatEventAt(beatNumber + 1);
+  if (!beatEvent.watch && nextEvent.watch) return `${beatEvent.tip} 下一拍要收手。`;
+  return beatEvent.tip;
+}
+
+function announceTransportBeat(beatNumber) {
+  if (!state.running || !state.rhythmMode) return;
+  if (beatNumber < 0) {
+    const count = Math.abs(beatNumber);
+    setJudgeState("预备");
+    setCountInText(count === 1 ? "GO" : `${count}`);
+    updateBeatTip("先跟着拍点准备，正式记分马上开始。");
+    updateKeyHint(describeRhythmKeys());
+    return;
+  }
+  if (beatNumber === 0) {
+    setCountInText("开始");
+    window.setTimeout(() => { if (countInText.textContent === "开始") setCountInText(""); }, 220);
+  } else { setCountInText(""); }
+
+  completePhraseIfNeeded(beatNumber);
+  const beatEvent = getBeatEventAt(beatNumber);
+  state.currentBeatKey = beatEvent.key;
+  stage.classList.remove("beat-pop");
+  void stage.offsetWidth;
+  stage.classList.add("beat-pop");
+
+  if (beatEvent.watch) { enterRhythmWarning(beatEvent); }
+  else if (beatEvent.judgeable && state.grooming) {
+    state.alert = clamp(state.alert - beatEvent.alertEase, 0, 100);
+    updateCareMeters();
+    if (!state.watching) setJudgeState(beatEvent.label);
+  } else if (!state.watching) { setJudgeState(beatEvent.label); }
+
+  updateBeatTip(buildBeatTip(beatNumber, beatEvent));
+  updateKeyHint(describeRhythmKeys());
+  setNextKeyIndicator(beatEvent.key);
+  if (beatNumber >= 0) { const nextEvent = getBeatEventAt(beatNumber + 1); if (nextEvent.watch) setNextKeyIndicator(nextEvent.key); }
+}
+
+/* Refactored: uses LookAheadScheduler instead of setTimeout tick */
+function scheduleRhythmLoop() {
+  if (!state.running || !state.rhythmMode) return;
+  const scheduler = state.scheduler;
+  if (!scheduler) return;
+  scheduler.clear();
+  scheduler.start();
+
+  /* Pre-schedule all beat events using the look-ahead scheduler */
+  const totalBeats = 512;
+  for (let beat = -state.countInBeats; beat <= totalBeats; beat++) {
+    const beatTime = rhythmBeatTime(beat);
+    const event = getBeatEventAt(beat);
+
+    /* Schedule sound (precise timing via scheduler) */
+    scheduler.addEvent(beatTime, () => {
+      if (!state.running || !state.rhythmMode) return;
+      if (beat < 0) { playCountInSound(Math.abs(beat)); }
+      else { playBeatSound(event); }
+    });
+
+    /* Schedule transport announcement ~2ms before beat for visual lead */
+    scheduler.addEvent(beatTime - 0.002, () => {
+      if (!state.running || !state.rhythmMode) return;
+      announceTransportBeat(beat);
+    });
+  }
+}
+
+/* RAF-driven preview render */
+function renderRhythmPreview() {
+  if (!state.running || !state.rhythmMode) { rhythmPreview.innerHTML = ""; return; }
+  const now = currentAudioTime();
+  const lookBackBeats = 1.2;
+  const lookAheadBeats = 4.6;
+  const startBeat = Math.floor((now - state.rhythmStartTime) / state.beatDuration - lookBackBeats);
+  const endBeat = Math.ceil((now - state.rhythmStartTime) / state.beatDuration + lookAheadBeats);
+  const markup = [];
+
+  for (let beat = Math.max(-state.countInBeats, startBeat); beat <= endBeat; beat += 1) {
+    const beatTime = rhythmBeatTime(beat);
+    const deltaBeats = (beatTime - now) / state.beatDuration;
+    const position = ((deltaBeats + lookBackBeats) / (lookBackBeats + lookAheadBeats)) * 100;
+    if (position < -8 || position > 108) continue;
+    if (beat < 0) {
+      markup.push(`<span class="preview-note count${Math.abs(deltaBeats) < 0.18 ? " is-now" : ""}" data-label="${Math.abs(beat) === 1 ? "GO" : Math.abs(beat)}" style="left:${position}%;"></span>`);
+      continue;
+    }
+    const event = getBeatEventAt(beat);
+    const nextEvent = getBeatEventAt(beat + 1);
+    const classes = ["preview-note", event.key];
+    if (Math.abs(deltaBeats) < 0.18) classes.push("is-now");
+    if (!event.watch && nextEvent.watch && deltaBeats > -0.2 && deltaBeats < 1.25) classes.push("is-danger");
+    markup.push(`<span class="${classes.join(" ")}" data-label="${event.previewLabel}" style="left:${position}%;"></span>`);
+  }
+  rhythmPreview.innerHTML = markup.join("");
+  state.previewFrame = requestAnimationFrame(renderRhythmPreview);
+}
+
+/* ---------- Auto Beat Generator (web-audio-beat-detector) ---------- */
+function generateFallbackPattern(bpm) {
+  /* 4/4 time: downbeat=accent, beats 2,3,4=tap, some random peek/look on offbeats */
+  const pattern = [];
+  for (let bar = 0; bar < 8; bar++) {
+    for (let beat = 0; beat < 4; beat++) {
+      if (beat === 0) pattern.push("accent");
+      else pattern.push("tap");
+    }
+    /* Insert a peek or look in a random position within the bar */
+    const r = Math.random();
+    if (r < 0.25) pattern[pattern.length - 2] = "peek";
+    else if (r < 0.45) pattern[pattern.length - 1] = "look";
+  }
+  /* Ensure at least one look and one peek */
+  if (!pattern.includes("look")) pattern[pattern.length - 1] = "look";
+  if (!pattern.includes("peek")) pattern[Math.floor(pattern.length / 2)] = "peek";
+  return pattern;
+}
+
+async function analyzeAndGenerateBeats(audioBuffer) {
+  /* 内置兜底：如果库没加载或识别失败，返回默认 120 BPM */
+  var DEFAULT_BPM = 120;
+  var guessFn = window.__beatDetectorGuess;
+
+  if (!guessFn) {
+    console.warn("beat-detector 未加载，使用默认 BPM=" + DEFAULT_BPM);
+    var pattern = generateFallbackPattern(DEFAULT_BPM);
+    return { bpm: DEFAULT_BPM, offset: 0, pattern: pattern };
+  }
+
+  try {
+    var result = await Promise.race([
+      guessFn(audioBuffer),
+      new Promise(function(_, reject) { setTimeout(function() { reject(new Error("分析超时")); }, 3000); }),
+    ]);
+    var bpm = Math.round(result.bpm);
+    var clampedBpm = clamp(bpm, 60, 200);
+    var pattern = generateFallbackPattern(clampedBpm);
+    return { bpm: clampedBpm, offset: result.offset, pattern: pattern };
+  } catch (err) {
+    console.warn("beat detection 调用失败，使用默认 BPM=" + DEFAULT_BPM, err);
+    var pattern = generateFallbackPattern(DEFAULT_BPM);
+    return { bpm: DEFAULT_BPM, offset: 0, pattern: pattern };
+  }
+}
+
+/* Start rhythm track with auto-beat generation if needed */
+function startRhythmTrack() {
+  const song = getCurrentSong();
+  unlockAudio();
+  state.beatDuration = 60 / song.bpm;
+  /* audioOffset 补偿 MP3 编码器在文件头插入的静音填充 */
+  state.audioOffset = 0.12;
+  const anchorTime = currentAudioTime() + 0.18;
+  const songStartAudioTime = anchorTime + state.countInBeats * state.beatDuration;
+  state.rhythmStartTime = songStartAudioTime;
+  state.songStartAudioTime = songStartAudioTime;
+  state.rhythmScheduleCursor = -state.countInBeats;
+  state.lastAnnouncedBeat = -state.countInBeats - 1;
+  state.lastJudgedBeat = -1;
+  state.currentBeatKey = "rest";
+  state.phraseMisses = 0;
+  state.phraseStartBeat = 0;
+
+  scheduleRhythmLoop();
+  renderRhythmPreview();
+
+  void ensureSongAudioDecoded(song).then(async () => {
+    if (!state.running || !state.rhythmMode || getCurrentSong()?.id !== song.id) return;
+
+    /* 节拍来源双选：
+       source === "auto"  → 调用 analyzeAndGenerateBeats 自动识别
+       source === "manual" → 使用用户在表单里填的 pattern，绝不覆盖 */
+    const shouldAutoAnalyze = song.audioBuffer
+      && song.audioBuffer.duration > 0
+      && song.custom
+      && song.source === "auto"
+      && window.__beatDetectorGuess;
+    if (shouldAutoAnalyze) {
+      try {
+        setJudgeState("分析中", "good");
+        updateBeatTip("正在分析音频节拍...");
+        const generated = await analyzeAndGenerateBeats(song.audioBuffer);
+        song.bpm = generated.bpm;
+        song.pattern = generated.pattern;
+        state.beatDuration = 60 / song.bpm;
+        state.rhythmStartTime = currentAudioTime() + state.countInBeats * state.beatDuration;
+        songBpmEl.textContent = `${song.bpm} BPM (自动)`;
+        updateBeatTip(describeSongRhythm(song));
+        state.scheduler.clear();
+        scheduleRhythmLoop();
+      } catch (err) {
+        console.warn("自动分析失败，使用用户 BPM + 预设节拍", err);
+        /* 保留用户填的 BPM，只生成兜底 pattern */
+        song.pattern = generateFallbackPattern(song.bpm);
+        state.beatDuration = 60 / song.bpm;
+        state.rhythmStartTime = currentAudioTime() + state.countInBeats * state.beatDuration;
+        songBpmEl.textContent = song.bpm + " BPM (预设节拍)";
+        updateBeatTip("音频分析失败，已使用你填的 BPM + 自动节拍。");
+        state.scheduler.clear();
+        scheduleRhythmLoop();
+      }
+    }
+
+    startSongAudio(state.songStartAudioTime, state.audioOffset || 0);
+  });
+}
+
+function enterRhythmWarning(beatEvent) {
+  if (!state.running || state.watching) return;
+  enterWatch({
+    reason: beatEvent.key,
+    reward: beatEvent.watchReward,
+    graceMs: state.beatDuration * beatEvent.graceBeats * 1000,
+    watchMs: state.beatDuration * beatEvent.watchBeats * 1000,
+    allowIdle: true,
+  });
+}
+
+/* ---------- Scoring ---------- */
+function spawnHint(text, color) {
+  const rect = stage.getBoundingClientRect();
+  const catRect = catZone.getBoundingClientRect();
+  const hint = document.createElement("span");
+  hint.className = "hint-pop";
+  hint.textContent = text;
+  hint.style.left = `${catRect.left - rect.left + catRect.width / 2}px`;
+  hint.style.top = `${catRect.top - rect.top + catRect.height * 0.2}px`;
+  hint.style.color = color;
+  fxLayer.append(hint);
+  hint.addEventListener("animationend", () => hint.remove(), { once: true });
+}
+
+function spawnPlusOne(point, bonus = 0, isPerfect = false) {
+  const rect = stage.getBoundingClientRect();
+  const plus = document.createElement("span");
+  plus.className = "plus-one";
+  if (isPerfect) plus.classList.add("perfect-pop");
+  plus.textContent = bonus ? `+${1 + bonus}` : "+1";
+  plus.style.left = `${point.x - rect.left}px`;
+  plus.style.top = `${point.y - rect.top}px`;
+  fxLayer.append(plus);
+  plus.addEventListener("animationend", () => plus.remove(), { once: true });
+}
+
+function addScore(point) {
+  state.combo += 1;
+  const bonus = state.combo > 0 && state.combo % 8 === 0 ? 2 : 0;
+  state.score += 1 + bonus;
+  scoreEl.textContent = String(state.score);
+  if (bonus) spawnHint(`连击 +${bonus}`, "#fff4bd");
+  moodEl.textContent = state.combo >= 6 ? "呼噜" : "放松";
+  spawnPlusOne(point, bonus);
+  if (furPool) {
+    furPool.spawn(point, stage.getBoundingClientRect());
+  } else {
+    /* Fallback: legacy fur spawning if pool not ready */
+    spawnFurLegacy(point);
+  }
+  updateFurPile();
+  updateCareMeters();
+  window.setTimeout(playRustleSound, 100);
+}
+
+/* Legacy fur spawn (fallback when pool not initialized) */
+function spawnFurLegacy(point) {
+  const rect = stage.getBoundingClientRect();
+  const count = Math.floor(randomBetween(3, 6));
+  for (let i = 0; i < count; i++) {
+    const hair = document.createElement("span");
+    const length = randomBetween(8, 18);
+    const driftX = randomBetween(-58, 58);
+    const driftY = randomBetween(-50, -20);
+    hair.className = "fur-hair";
+    hair.style.left = `${point.x - rect.left + randomBetween(-12, 12)}px`;
+    hair.style.top = `${point.y - rect.top + randomBetween(-8, 8)}px`;
+    hair.style.width = `${length}px`;
+    hair.style.rotate = `${randomBetween(-35, 35)}deg`;
+    hair.style.setProperty("--drift-x", `${driftX}px`);
+    hair.style.setProperty("--drift-y", `${driftY}px`);
+    hair.style.animationDelay = `${randomBetween(0, 70)}ms`;
+    if (Math.random() > 0.55) hair.classList.add("curly");
+    fxLayer.append(hair);
+    hair.addEventListener("animationend", () => hair.remove(), { once: true });
+  }
+}
+
+function updateFurPile() {
+  const thinning = Math.min(0.32, Math.max(0, (state.score - 12) / 95));
+  thinFur.style.opacity = String(thinning);
+  if (state.score % 12 !== 0 || floorFur.childElementCount >= 8) return;
+  const ball = document.createElement("span");
+  ball.className = "fur-ball";
+  ball.style.left = `${randomBetween(18, 82)}%`;
+  ball.style.scale = `${randomBetween(0.75, 1.3)}`;
+  floorFur.append(ball);
+}
+
+function updateCatMoodFromStroke(speed, moveDistance) {
+  const difficulty = getCurrentDifficulty();
+  const calmStroke = speed >= 80 && speed <= 520;
+  const roughStroke = speed > 760;
+  const idleDrag = speed < 45;
+  if (calmStroke) { state.comfort = clamp(state.comfort + moveDistance * 0.09, 0, 100); state.alert = clamp(state.alert - difficulty.alertDecay * 1.5, 0, 100); moodEl.textContent = state.combo >= 6 ? "很舒服" : "放松"; }
+  else if (roughStroke) { state.alert = clamp(state.alert + difficulty.alertGain * (speed / 260), 0, 100); state.comfort = clamp(state.comfort - 1.4, 0, 100); state.combo = 0; moodEl.textContent = "嫌弃"; spawnHint("太快了", "#ffdf80"); }
+  else if (idleDrag) { state.alert = clamp(state.alert + 0.35, 0, 100); }
+  if (state.comfort >= 100) { state.comfort = 55; state.score += 5; scoreEl.textContent = String(state.score); spawnHint("舒服 +5", "#b8ffb1"); playPurrSound(); }
+  updateCareMeters();
+}
+
+/* ---------- Rhythm judging ---------- */
+function createRhythmPoint() {
+  const rect = catZone.getBoundingClientRect();
+  return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+}
+
+function judgeRhythmHit(point, inputType = null) {
+  if (!state.running || !state.rhythmMode || state.watching) return;
+  unlockAudio();
+  const audioNow = currentAudioTime();
+  if (audioNow < state.rhythmStartTime - state.beatDuration * 0.35) {
+    setJudgeState("太早", "miss");
+    updateBeatTip("先听完倒数，再开始记分。");
+    return;
+  }
+  const elapsed = audioNow - state.rhythmStartTime;
+  const beatFloat = elapsed / state.beatDuration;
+  const nearestBeat = Math.round(beatFloat);
+  if (nearestBeat < 0 || nearestBeat === state.lastJudgedBeat) return;
+  const beatEvent = getBeatEventAt(nearestBeat);
+  const plannedTime = rhythmBeatTime(nearestBeat);
+  const beatDeltaMs = Math.abs(audioNow - plannedTime) * 1000;
+  const windows = getJudgeWindows(beatEvent, getCurrentSong().bpm);
+  state.lastJudgedBeat = nearestBeat;
+
+  if (inputType && beatEvent.judgeable && inputType !== beatEvent.key && beatDeltaMs <= windows.judgeWindow) {
+    applyRhythmJudge("Miss", point, beatEvent, "按错键");
+    return;
+  }
+  if (!beatEvent.judgeable || beatDeltaMs > windows.judgeWindow) { applyRhythmJudge("Miss", point, beatEvent); }
+  else if (beatDeltaMs <= windows.perfectWindow) { applyRhythmJudge("Perfect", point, beatEvent); }
+  else { applyRhythmJudge("Good", point, beatEvent); }
+}
+
+function applyRhythmJudge(result, point, beatEvent, missLabel) {
+  beatEvent = beatEvent || getBeatEventAt(state.lastJudgedBeat);
+  missLabel = missLabel || "Miss";
+  const config = {
+    Perfect: { score: 3 + (beatEvent.scoreBonus || 0), comfort: 13 + (beatEvent.comfortBonus || 0), alert: -7 - Math.max(0, (beatEvent.alertEase || 0) - 4), color: "#b8ffb1", label: beatEvent.label === "重拍" ? "重拍 Perfect" : "Perfect" },
+    Good:    { score: 1 + Math.max(0, (beatEvent.scoreBonus || 0) - 1), comfort: 6 + Math.max(0, (beatEvent.comfortBonus || 0) - 1), alert: -2 - Math.max(0, (beatEvent.alertEase || 0) - 4) * 0.5, color: "#fff4bd", label: beatEvent.label === "重拍" ? "重拍 Good" : "Good" },
+    Miss:    { score: 0, comfort: -4, alert: 12, color: "#ff9b8a", label: missLabel },
+  }[result];
+
+  setJudgeState(result, result.toLowerCase());
+  if (result === "Perfect") state.statsPerfect += 1;
+  else if (result === "Good") state.statsGood += 1;
+  else state.statsMiss += 1;
+
+  state.combo = result === "Miss" ? 0 : state.combo + 1;
+  if (state.combo > state.statsMaxCombo) state.statsMaxCombo = state.combo;
+  if (result === "Miss") state.phraseMisses += 1;
+  state.score += config.score + (state.combo > 0 && state.combo % 12 === 0 ? 4 : 0);
+  state.comfort = clamp(state.comfort + config.comfort, 0, 100);
+  state.alert = clamp(state.alert + config.alert, 0, 100);
+  scoreEl.textContent = String(state.score);
+  updateCareMeters();
+
+  if (result !== "Miss") {
+    spawnPlusOne(point, Math.max(0, config.score - 1), result === "Perfect");
+    if (furPool) furPool.spawn(point, stage.getBoundingClientRect());
+    playBrushAccent(result);
+    flashCat(result);
+    if (result === "Perfect") {
+      spawnHint(config.label, config.color);
+      if ([25, 50, 75, 100].includes(state.combo)) spawnComboMilestone(state.combo);
+    }
+  } else {
+    playMissSound();
+    spawnHint(config.label, config.color);
+    flashCat("Miss");
+  }
+}
+
+/* ---------- Pointer input ---------- */
+function handlePointerStart(event) {
+  if (!state.running) return;
+  if (isUiInteractionTarget(event.target)) return;
+  event.preventDefault();
+  unlockAudio();
+  const point = getPoint(event);
+  state.pointerDown = true;
+  state.grooming = pointInsideCat(point);
+  state.lastPoint = state.grooming ? point : null;
+  state.lastMoveAt = performance.now();
+  moveComb(point);
+  if (state.grooming && !state.watching && !state.rhythmMode) scheduleWatch();
+  if (state.grooming && state.rhythmMode) judgeRhythmHit(point);
+  if (state.watching && state.grooming && performance.now() >= state.warningGraceUntil) endGame();
+}
+
+function handlePointerMove(event) {
+  if (isUiInteractionTarget(event.target)) return;
+  const point = getPoint(event);
+  moveComb(point);
+  if (!state.running || !state.pointerDown) return;
+  event.preventDefault();
+  if (state.watching) {
+    state.grooming = pointInsideCat(point);
+    if (state.grooming && performance.now() >= state.warningGraceUntil) endGame();
+    return;
+  }
+  if (!pointInsideCat(point)) {
+    state.lastPoint = null;
+    state.grooming = false;
+    window.clearTimeout(state.nextWatchTimer);
+    state.nextWatchTimer = 0;
+    state.nextWatchAt = 0;
+    stage.classList.remove("brushing");
+    stopBrushLoop();
+    return;
+  }
+  const shouldStartWatchTimer = !state.grooming;
+  state.grooming = true;
+  if (shouldStartWatchTimer && !state.rhythmMode) scheduleWatch();
+  if (shouldStartWatchTimer && state.rhythmMode) judgeRhythmHit(point);
+  stage.classList.add("brushing");
+  if (!state.lastPoint) { state.lastPoint = point; return; }
+  const dx = point.x - state.lastPoint.x;
+  const dy = point.y - state.lastPoint.y;
+  const moveDistance = Math.hypot(dx, dy);
+  const now = performance.now();
+  const deltaSeconds = Math.max(0.016, (now - state.lastMoveAt) / 1000);
+  const speed = moveDistance / deltaSeconds;
+  state.distance += moveDistance;
+  state.lastPoint = point;
+  state.lastMoveAt = now;
+  updateBrushLoop(speed);
+  if (!state.rhythmMode) updateCatMoodFromStroke(speed, moveDistance);
+  if (state.rhythmMode) {
+    const threshold = Math.max(18, getCurrentDifficulty().speedThreshold * 0.65);
+    while (state.distance >= threshold) { state.distance -= threshold; judgeRhythmHit(point); }
+  } else {
+    const threshold = getCurrentDifficulty().speedThreshold;
+    while (state.distance >= threshold) { state.distance -= threshold; addScore(point); }
+    maybeEnterWatch();
+  }
+}
+
+function handlePointerEnd() {
+  state.pointerDown = false;
+  state.grooming = false;
+  state.lastPoint = null;
+  state.distance = 0;
+  state.combo = 0;
+  state.activeRhythmKeys.clear();
+  window.clearTimeout(state.nextWatchTimer);
+  state.nextWatchTimer = 0;
+  state.nextWatchAt = 0;
+  stage.classList.remove("brushing");
+  stopBrushLoop();
+  updateCareMeters();
+}
+
+/* ---------- Keyboard input ---------- */
+function handleRhythmKeyDown(event) {
+  if (!state.running || !state.rhythmMode || event.repeat || isUiInteractionTarget(event.target)) return;
+  const inputType = RHYTHM_KEY_BINDINGS[event.code];
+  if (!inputType) return;
+  event.preventDefault();
+  unlockAudio();
+  state.activeRhythmKeys.add(event.code);
+  if (state.watching) {
+    if (performance.now() >= state.warningGraceUntil) endGame();
+    return;
+  }
+  state.pointerDown = true;
+  state.grooming = true;
+  judgeRhythmHit(createRhythmPoint(), inputType);
+}
+
+function handleRhythmKeyUp(event) {
+  if (!RHYTHM_KEY_BINDINGS[event.code]) return;
+  state.activeRhythmKeys.delete(event.code);
+  if (!state.rhythmMode) return;
+  if (state.activeRhythmKeys.size === 0) { state.pointerDown = false; state.grooming = false; }
+}
+
+/* ---------- Mode / Song / Cat / Tool management ---------- */
+function setRhythmMode(enabled) {
+  state.rhythmMode = enabled;
+  modeBtn.textContent = enabled ? "节奏模式" : "自由模式";
+  stage.classList.toggle("rhythm-mode", enabled);
+  setJudgeState(enabled ? "预备" : "准备");
+  updateBeatTip(enabled ? describeSongRhythm(getCurrentSong()) : "普通模式下，小猫会随机回头。");
+  updateKeyHint(enabled ? describeRhythmKeys() : "普通模式主要用鼠标或触摸梳毛。");
+  updateOverlayCopy();
+  resetRoundVisuals();
+}
+
+function changeSong(direction) {
+  /* 如果正在游戏中，确认后才切换，防止误触丢进度 */
+  if (state.running && state.rhythmMode) {
+    if (!confirm("正在节奏模式中，切换歌曲会结束当前游戏。确定吗？")) return;
+    endGame();
+  }
+  state.songIndex = (state.songIndex + direction + songs.length) % songs.length;
+  applySong();
+  /* 空闲时静默切换，不弹 overlay 不重置状态 */
+  if (!state.running) {
+    setJudgeState(state.rhythmMode ? "预备" : "准备");
+    updateBeatTip(state.rhythmMode ? describeSongRhythm(getCurrentSong()) : "普通模式下，小猫会随机回头。");
+    if (state.rhythmMode) updateKeyHint(describeRhythmKeys());
+  }
+  if (state.rhythmMode && !state.running) {
+    stopRhythmTrack();
+    rhythmPreview.innerHTML = "";
+  }
+}
+
+async function deleteCurrentSong() {
+  const currentSong = getCurrentSong();
+  if (currentSong.builtin) { spawnHint("内置歌曲不能删除", "#ffdf80"); return; }
+  songs.splice(state.songIndex, 1);
+  state.songIndex = Math.min(state.songIndex, songs.length - 1);
+  await persistSongs();
+  applySong();
+  if (state.rhythmMode) resetRoundVisuals();
+}
+
+function changeCat(direction) {
+  const wasRunning = state.running;
+  state.pointerDown = false;
+  state.grooming = false;
+  state.activeRhythmKeys.clear();
+  state.catIndex = (state.catIndex + direction + cats.length) % cats.length;
+  applyCat({ resetToRelaxed: true });
+  clearTimers();
+  state.nextWatchAt = 0;
+  state.watchReason = "normal";
+  state.watchReward = 0;
+  state.watchEligible = false;
+  state.distance = 0;
+  state.lastPoint = null;
+  stopBrushLoop();
+  if (state.rhythmMode) { stopRhythmTrack(); setJudgeState("预备"); updateBeatTip(describeSongRhythm(getCurrentSong())); if (wasRunning) startRhythmTrack(); }
+  else { setJudgeState("准备"); }
+  if (!wasRunning) { stage.classList.remove("watching", "jumpscare", "brushing"); stage.classList.add("relaxed"); }
+  overlay.classList.toggle("show", !wasRunning);
+}
+
+async function deleteCurrentCat() {
+  const currentCat = getCurrentCat();
+  if (currentCat.builtin) { spawnHint("内置猫不能删除", "#ffdf80"); return; }
+  if (cats.length <= 1) { spawnHint("至少留一只猫", "#ffdf80"); return; }
+  cats.splice(state.catIndex, 1);
+  state.catIndex = Math.min(state.catIndex, cats.length - 1);
+  applyCat({ resetToRelaxed: true });
+  await persistCats();
+}
+
+function changeTool(direction) { state.toolIndex = (state.toolIndex + direction + tools.length) % tools.length; applyTool(); }
+
+function deleteCurrentTool() {
+  if (tools.length <= 1) { spawnHint("至少留一个工具", "#ffdf80"); return; }
+  tools.splice(state.toolIndex, 1);
+  state.toolIndex = Math.min(state.toolIndex, tools.length - 1);
+  applyTool();
+}
+
+function resetRoundVisuals() {
+  state.running = false;
+  state.pointerDown = false;
+  state.grooming = false;
+  state.watching = false;
+  state.distance = 0;
+  state.lastPoint = null;
+  state.nextWatchAt = 0;
+  state.watchReason = "normal";
+  state.watchReward = 0;
+  state.watchEligible = false;
+  state.currentBeatKey = "rest";
+  state.activeRhythmKeys.clear();
+  clearTimers();
+  stopRhythmTrack();
+  stage.classList.remove("watching", "jumpscare", "brushing");
+  stage.classList.add("relaxed");
+  deathTitle.classList.remove("show");
+  statsBlock.classList.remove("show");
+  nextKeyIndicator.classList.remove("show");
+  overlay.classList.add("show");
+  updateOverlayCopy();
+  startBtn.textContent = "开始";
+  setCountInText("");
+  setJudgeState(state.rhythmMode ? "预备" : "准备");
+  updateBeatTip(state.rhythmMode ? describeSongRhythm(getCurrentSong()) : "普通模式下，小猫会随机回头。");
+}
+
+/* ---------- Cat modal ---------- */
+function makeUploadedDifficulty() {
+  return {
+    ...BASE_DIFFICULTY,
+    minRelaxedTime: randomBetween(1.9, 2.5), maxRelaxedTime: randomBetween(4.2, 5.0),
+    minWarningTime: randomBetween(0.25, 0.35), maxWarningTime: randomBetween(0.5, 0.75),
+    speedThreshold: Math.round(randomBetween(36, 48)), reactionTime: randomBetween(0.4, 0.55),
+    alertGain: randomBetween(0.9, 1.2), alertDecay: randomBetween(0.65, 0.9),
+  };
+}
+
+function fillCatForm(cat) {
+  newCatName.value = cat?.name || "";
+  newCatPersonality.value = cat?.personality || "";
+  newCatRelax.value = "";
+  newCatAngry.value = "";
+}
+
+function serializePatternForInput(pattern) {
+  const tokenMap = { tap: "1", accent: "2", rest: "0", peek: "S", look: "L" };
+  return pattern.map((token) => tokenMap[token] || token).join(",");
+}
+
+/* beatSource 模式切换：自动→隐藏pattern且移除required；手动→显示且加回required */
+function applyBeatSourceMode(mode) {
+  var pat = document.getElementById("newSongPattern");
+  var label = pat ? pat.closest("label") : null;
+  if (mode === "auto") {
+    if (pat) { pat.removeAttribute("required"); pat.value = pat.value || ""; }
+    if (label) label.style.display = "none";
+  } else {
+    if (pat) pat.setAttribute("required", "");
+    if (label) label.style.display = "grid";
+  }
+}
+
+function fillSongForm(song) {
+  newSongName.value = song?.name || "";
+  newSongBpm.value = String(song?.bpm || 100);
+  newSongPattern.value = song ? serializePatternForInput(song.pattern) : "";
+  newSongAudio.value = "";
+  var source = song?.source || "manual";
+  var radio = document.querySelector('input[name="beatSource"][value="' + source + '"]');
+  if (radio) radio.checked = true;
+  applyBeatSourceMode(source);
+}
+
+function openCatModal(mode, cat) {
+  handlePointerEnd();
+  state.editingCatId = cat?.id || null;
+  catModalTitle.textContent = mode === "edit" ? "编辑猫咪" : "添加猫咪";
+  catModalHint.textContent = mode === "edit" ? "可以改名字、介绍，也可以替换 0 / 1 状态图。" : "0 图是平静状态，1 图是警惕状态。";
+  saveCatBtn.textContent = mode === "edit" ? "保存修改" : "添加猫咪";
+  restoreCatBtn.hidden = !(mode === "edit" && cat?.builtin);
+  fillCatForm(cat);
+  catModal.classList.add("show");
+  catModal.removeAttribute("inert");
+  catModal.setAttribute("aria-hidden", "false");
+  newCatName.focus();
+}
+
+function closeCatModal() {
+  if (document.activeElement) document.activeElement.blur();
+  state.editingCatId = null;
+  catModal.classList.remove("show");
+  catModal.setAttribute("inert", "");
+  catModal.setAttribute("aria-hidden", "true");
+  catForm.reset();
+}
+
+function openSongModal(mode, song) {
+  handlePointerEnd();
+  state.editingSongId = song?.id || null;
+  songModalTitle.textContent = mode === "edit" ? "编辑歌曲" : "添加歌曲";
+  songModalHint.textContent = mode === "edit" ? "可以替换 BPM、节拍和音频；留空则保留当前音频。" : "支持继续使用 1 / 2 / 0 / S / L 的旧节拍格式。";
+  saveSongBtn.textContent = mode === "edit" ? "保存修改" : "添加歌曲";
+  restoreSongBtn.hidden = !(mode === "edit" && song?.builtin);
+  fillSongForm(song);
+  /* 节拍来源切换事件：统一用 applyBeatSourceMode 管理 required 和显示 */
+  document.querySelectorAll('input[name="beatSource"]').forEach(function(r) {
+    r.onchange = function() { applyBeatSourceMode(r.value); };
+  });
+  songModal.classList.add("show");
+  songModal.removeAttribute("inert");
+  songModal.setAttribute("aria-hidden", "false");
+  newSongName.focus();
+}
+
+function closeSongModal() {
+  if (document.activeElement) document.activeElement.blur();
+  state.editingSongId = null;
+  songModal.classList.remove("show");
+  songModal.setAttribute("inert", "");
+  songModal.setAttribute("aria-hidden", "true");
+  songForm.reset();
+}
+
+function parseSongPatternInput(input) {
+  const trimmed = input.trim();
+  if (!trimmed) throw new Error("先填一串节拍，比如 1,0,2,S,1,0,L,0");
+  const rawTokens = /[\s,|/]+/.test(trimmed) ? trimmed.split(/[\s,|/]+/).filter(Boolean) : trimmed.replace(/\s+/g, "").split("");
+  if (!rawTokens.length) throw new Error("节拍序列不能为空");
+  const pattern = rawTokens.map((token) => {
+    const normalized = parseBeatToken(token);
+    if (!normalized) throw new Error(`不认识 "${token}"。可用 1、2、0、L、S`);
+    return normalized;
+  });
+  if (pattern.length < 4) throw new Error("至少需要 4 拍，小猫才来得及进入状态。");
+  return pattern;
+}
+
+async function saveCatFromForm() {
+  const name = newCatName.value.trim() || "自定义猫";
+  const personality = newCatPersonality.value.trim() || "神秘的梳毛客人。";
+  const relaxFile = newCatRelax.files?.[0] || null;
+  const angryFile = newCatAngry.files?.[0] || null;
+
+  if (state.editingCatId) {
+    const index = cats.findIndex((cat) => cat.id === state.editingCatId);
+    const currentCat = cats[index];
+    if (!currentCat) return;
+    let relaxBlob = currentCat.relaxBlob || null;
+    let angryBlob = currentCat.angryBlob || null;
+    let relaxImg = currentCat.relaxImg;
+    let angryImg = currentCat.angryImg;
+    if (relaxFile) { relaxBlob = relaxFile; relaxImg = createManagedUrl(relaxBlob); }
+    if (angryFile) { angryBlob = angryFile; angryImg = createManagedUrl(angryBlob); }
+    const visuals = await combineStateImages(angryImg, relaxImg);
+    cats[index] = normalizeCatDefinition({ ...currentCat, name, personality, relaxBlob, angryBlob, relaxImg, angryImg, combinedImg: visuals.src, displayAspectRatio: visuals.aspectRatio, override: currentCat.builtin ? true : currentCat.override });
+    await persistCats();
+    applyCat({ resetToRelaxed: true });
+    closeCatModal();
+    spawnHint("猫咪资料已更新", "#9fdfeb");
+    return;
+  }
+
+  if (!relaxFile || !angryFile) throw new Error("新增猫咪时需要同时提供平静图和警惕图。");
+  const relaxBlob = relaxFile;
+  const angryBlob = angryFile;
+  const relaxImg = createManagedUrl(relaxBlob);
+  const angryImg = createManagedUrl(angryBlob);
+  const visuals = await combineStateImages(angryImg, relaxImg);
+  cats.push(normalizeCatDefinition({ id: createId("custom-cat"), name, personality, relaxBlob, angryBlob, relaxImg, angryImg, combinedImg: visuals.src, displayAspectRatio: visuals.aspectRatio, difficulty: makeUploadedDifficulty(), custom: true, builtin: false, override: false }));
+  state.catIndex = cats.length - 1;
+  await persistCats();
+  applyCat({ resetToRelaxed: true });
+  closeCatModal();
+  spawnHint("新猫入场", "#9fdfeb");
+}
+
+async function restoreCurrentCatDefault() {
+  if (!state.editingCatId) return;
+  const spec = BUILTIN_CAT_SPECS.find((item) => item.id === state.editingCatId);
+  if (!spec) return;
+  await idbDelete(DB_CAT_STORE, spec.id);
+  await hydrateGameData();
+  state.catIndex = cats.findIndex((cat) => cat.id === spec.id);
+  applyCat({ resetToRelaxed: true });
+  closeCatModal();
+  spawnHint("已恢复默认猫咪资料", "#fff4bd");
+}
+
+async function saveSongFromForm() {
+  const bpm = Number(newSongBpm.value);
+  if (!Number.isFinite(bpm) || bpm < 40 || bpm > 220) throw new Error("BPM 请填 40 到 220。");
+  const beatSourceRadio = document.querySelector('input[name="beatSource"]:checked');
+  const beatSource = beatSourceRadio ? beatSourceRadio.value : "manual";
+
+  /* 自动模式：跳过 required 校验，先移除 required 再 checkValidity */
+  if (beatSource === "auto") {
+    newSongPattern.removeAttribute("required");
+  }
+
+  /* 自动模式且 pattern 为空 → 用预设 pattern 兜底，避免 parseSongPatternInput("") 抛异常 */
+  var patternInputRaw = newSongPattern.value.trim();
+  var pattern;
+  if (beatSource === "auto" && !patternInputRaw) {
+    pattern = generateFallbackPattern(bpm);
+  } else {
+    pattern = parseSongPatternInput(patternInputRaw || newSongPattern.placeholder);
+  }
+
+  const name = newSongName.value.trim() || "自定义节拍";
+  const audioFile = newSongAudio.files?.[0] || null;
+  const userProvidedPattern = beatSource === "manual" && patternInputRaw.length > 0;
+
+  /* 解码音频（容错：失败也不影响歌曲保存） */
+  var audioBlob = audioFile || null;
+  var audioBuffer = null;
+  if (audioFile) {
+    setJudgeState("解码中", "good");
+    updateBeatTip("正在解码音频文件...");
+    try { audioBuffer = await decodeAudioBlob(audioFile); }
+    catch (e) { console.warn("音频解码异常，将保存无音频的歌曲", e); audioBuffer = null; }
+  }
+
+  if (state.editingSongId) {
+    const index = songs.findIndex(function(s) { return s.id === state.editingSongId; });
+    const currentSong = songs[index];
+    if (!currentSong) return;
+    if (!audioFile) { audioBlob = currentSong.audioBlob || null; audioBuffer = currentSong.audioBuffer || null; }
+    songs[index] = normalizeSongDefinition({ ...currentSong, name, bpm: Math.round(bpm), pattern, audioBlob: audioBlob, audioBuffer: audioBuffer, patternProvided: userProvidedPattern, source: beatSource, override: currentSong.builtin ? true : currentSong.override });
+    await persistSongs();
+    applySong();
+    closeSongModal();
+    if (state.rhythmMode) resetRoundVisuals();
+    setJudgeState("已保存", "perfect");
+    spawnHint("歌曲配置已更新", "#9fdfeb");
+    return;
+  }
+
+  songs.push(normalizeSongDefinition({ id: createId("custom-song"), name, bpm: Math.round(bpm), pattern, custom: true, builtin: false, override: false, audioBlob: audioBlob, audioBuffer: audioBuffer, patternProvided: userProvidedPattern, source: beatSource }));
+  state.songIndex = songs.length - 1;
+  await persistSongs();
+  applySong();
+  closeSongModal();
+  if (state.rhythmMode) resetRoundVisuals();
+  setJudgeState("已保存", "perfect");
+  spawnHint("新歌入场", "#9fdfeb");
+}
+
+async function restoreCurrentSongDefault() {
+  if (!state.editingSongId) return;
+  await idbDelete(DB_SONG_STORE, state.editingSongId);
+  await hydrateGameData();
+  state.songIndex = songs.findIndex((song) => song.id === state.editingSongId);
+  applySong();
+  closeSongModal();
+  if (state.rhythmMode) resetRoundVisuals();
+  spawnHint("已恢复默认歌曲", "#fff4bd");
+}
+
+function addUploadedTool(file) {
+  const url = createManagedUrl(file);
+  const img = new Image();
+  img.onload = () => {
+    tools.push({ name: file.name.replace(/\.[^.]+$/, "") || "自定义工具", img: url, cursorHotspot: `${Math.round(img.naturalWidth / 2)} ${Math.round(img.naturalHeight / 2)}` });
+    state.toolIndex = tools.length - 1;
+    applyTool();
+  };
+  img.src = url;
+}
+
+function toggleMute() {
+  state.muted = !state.muted;
+  if (state.muted) stopBrushLoop();
+  if (state.songGain) state.songGain.gain.setTargetAtTime(state.muted ? 0.0001 : 0.18, state.audio?.currentTime || 0, 0.03);
+  if (state.muted) { stopSongAudio(); }
+  else if (state.running && state.rhythmMode) { startSongAudio(state.songStartAudioTime, state.audioOffset || 0); }
+  updateMuteButton();
+}
+
+/* ---------- File:// protocol check ---------- */
+(function checkProtocol() {
+  if (location.protocol === "file:") {
+    var banner = document.createElement("div");
+    banner.className = "file-warning";
+    banner.textContent = "⚠ file:// 协议运行中。自动节拍识别、IndexedDB、Web Audio 解码等功能可能受限。请用 Live Server 或 http-server 打开。";
+    document.body.insertBefore(banner, document.body.firstChild);
+    console.warn("file:// 协议检测：CDN 模块、Web Audio 解码、IndexedDB 可能受限。建议用本地服务器打开。");
+  }
+})();
+
+/* ---------- Image preloader (silent, no <link rel=preload>) ---------- */
+(function preloadAllCatImages() {
+  BUILTIN_CAT_SPECS.forEach(function(spec) {
+    [spec.relaxImg, spec.angryImg].forEach(function(src) {
+      var img = new Image();
+      try { img.src = decodeURI(src); } catch(e) { img.src = src; }
+    });
+  });
+  var combImg = new Image();
+  combImg.src = "assets/comb.png";
+})();
+
+/* ---------- Bootstrap ---------- */
+bestEl.textContent = String(state.best);
+updateMuteButton();
+updateCareMeters();
+startBtn.disabled = true;
+startBtn.textContent = "加载中...";
+bootstrap();
+
+async function bootstrap() {
+  try {
+    state.db = await openDatabase();
+    await migrateLegacyStorageIfNeeded();
+    await hydrateGameData();
+    applyTool();
+    applyCat({ resetToRelaxed: true });
+    applySong();
+    resetRoundVisuals();
+    if (state.migrationNotice) updateBeatTip(state.migrationNotice);
+    state.initialized = true;
+    startBtn.disabled = false;
+    if (!state.running) startBtn.textContent = "开始";
+    if (state.pendingStart) { state.pendingStart = false; startGame(); }
+  } catch (error) {
+    console.error("Failed to initialize game", error);
+    await initializeFallbackData();
+    state.initFailed = true;
+    setJudgeState("降级启动", "good");
+    updateBeatTip("本地存储初始化失败，已切到内置数据。");
+    state.initialized = true;
+    startBtn.disabled = false;
+    if (!state.running) startBtn.textContent = "开始";
+    if (state.pendingStart) { state.pendingStart = false; startGame(); }
+  }
+}
+
+async function initializeFallbackData() {
+  const [builtCats, builtSongs] = await Promise.all([buildBuiltinCats([]), buildSongs([])]);
+  cats.splice(0, cats.length, ...builtCats);
+  songs.splice(0, songs.length, ...builtSongs);
+  state.catIndex = 0;
+  state.songIndex = 0;
+  applyTool();
+  applyCat({ resetToRelaxed: true });
+  applySong();
+  resetRoundVisuals();
+}
+
+/* ---------- Event binding ---------- */
+startBtn.addEventListener("click", startGame);
+muteBtn.addEventListener("click", toggleMute);
+modeBtn.addEventListener("click", () => setRhythmMode(!state.rhythmMode));
+prevSongBtn.addEventListener("click", () => changeSong(-1));
+nextSongBtn.addEventListener("click", () => changeSong(1));
+editSongBtn.addEventListener("click", () => openSongModal("edit", getCurrentSong()));
+importSongBtn.addEventListener("click", () => openSongModal("add"));
+deleteSongBtn.addEventListener("click", () => { void deleteCurrentSong(); });
+prevCatBtn.addEventListener("click", () => changeCat(-1));
+nextCatBtn.addEventListener("click", () => changeCat(1));
+editCatBtn.addEventListener("click", () => openCatModal("edit", getCurrentCat()));
+addCatBtn.addEventListener("click", () => openCatModal("add"));
+deleteCatBtn.addEventListener("click", () => { void deleteCurrentCat(); });
+cancelCatBtn.addEventListener("click", closeCatModal);
+restoreCatBtn.addEventListener("click", () => { void restoreCurrentCatDefault(); });
+catModal.addEventListener("mousedown", (event) => { if (event.target === catModal) closeCatModal(); });
+catModal.addEventListener("touchstart", (event) => { if (event.target === catModal) closeCatModal(); });
+catForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  try { await saveCatFromForm(); }
+  catch (error) { const message = error instanceof Error ? error.message : "保存猫咪失败"; setJudgeState("保存失败", "miss"); updateBeatTip(message); spawnHint(message, "#ff9b8a"); }
+});
+cancelSongBtn.addEventListener("click", closeSongModal);
+restoreSongBtn.addEventListener("click", () => { void restoreCurrentSongDefault(); });
+songModal.addEventListener("mousedown", (event) => { if (event.target === songModal) closeSongModal(); });
+songModal.addEventListener("touchstart", (event) => { if (event.target === songModal) closeSongModal(); });
+songForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  try { await saveSongFromForm(); }
+  catch (error) { const message = error instanceof Error ? error.message : "保存歌曲失败"; setJudgeState("保存失败", "miss"); updateBeatTip(message); spawnHint(message, "#ff9b8a"); }
+});
+window.addEventListener("keydown", (event) => {
+  handleRhythmKeyDown(event);
+  if (event.key === "Escape" && catModal.classList.contains("show")) closeCatModal();
+  if (event.key === "Escape" && songModal.classList.contains("show")) closeSongModal();
+});
+window.addEventListener("keyup", handleRhythmKeyUp);
+
+prevToolBtn.addEventListener("click", () => changeTool(-1));
+nextToolBtn.addEventListener("click", () => changeTool(1));
+deleteToolBtn.addEventListener("click", deleteCurrentTool);
+toolUpload.addEventListener("change", () => { const file = toolUpload.files?.[0]; if (file) addUploadedTool(file); toolUpload.value = ""; });
+
+catStateImg.addEventListener("load", () => {
+  const currentCat = getCurrentCat();
+  if (!currentCat) return;
+  const fallbackRatio = catStateImg.naturalWidth && catStateImg.naturalHeight ? catStateImg.naturalWidth / catStateImg.naturalHeight : null;
+  const ratio = currentCat.displayAspectRatio || fallbackRatio;
+  if (ratio) catZone.style.aspectRatio = String(ratio);
+});
+
+stage.addEventListener("mousedown", handlePointerStart);
+stage.addEventListener("mousemove", handlePointerMove);
+window.addEventListener("mouseup", handlePointerEnd);
+
+stage.addEventListener("touchstart", handlePointerStart, { passive: false });
+stage.addEventListener("touchmove", handlePointerMove, { passive: false });
+window.addEventListener("touchend", handlePointerEnd);
+window.addEventListener("touchcancel", handlePointerEnd);
+
+stage.addEventListener("mouseleave", () => { combGhost.classList.remove("visible"); });
+</script>
+
+</body>
+</html>
